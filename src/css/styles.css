@@ -1,0 +1,488 @@
+/* Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Canvas Container */
+.canvas-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: #FAF8F4;
+}
+
+/* Main Canvas */
+#main-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: default;
+}
+
+/* Canvas cursor states */
+#main-canvas.panning {
+    cursor: grabbing !important;
+}
+
+#main-canvas.can-pan {
+    cursor: grab !important;
+}
+
+#main-canvas.drawing {
+    cursor: crosshair !important;
+}
+
+#main-canvas.creating {
+    cursor: pointer !important;
+}
+
+/* Toolbar */
+.toolbar {
+    position: absolute;
+    top: 50%;
+    left: 20px;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    background-color: white;
+    padding: 15px 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+}
+
+/* Tool sections */
+.toolbar::before {
+    content: '';
+    display: block;
+    width: 30px;
+    height: 1px;
+    background-color: #e0e0e0;
+    margin: 5px auto;
+    order: 3; /* After the first 3 tools */
+}
+
+.toolbar::after {
+    content: '';
+    display: block;
+    width: 30px;
+    height: 1px;
+    background-color: #e0e0e0;
+    margin: 5px auto;
+    order: 6; /* After the first 6 tools */
+}
+
+.tool-button {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.tool-button:hover {
+    background-color: #f0f0f0;
+    transform: translateY(-2px);
+}
+
+.tool-button.active {
+    background-color: #ED682B;
+    box-shadow: 0 2px 5px rgba(237, 104, 43, 0.3);
+}
+
+.tool-button.active svg path,
+.tool-button.active svg rect {
+    fill: white;
+}
+
+/* Tool button tooltips */
+.tool-button::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50px;
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+.tool-button:hover::after {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Tool button order */
+.tool-button[data-tool="selection"] { order: 1; }
+.tool-button[data-tool="hand"] { order: 2; }
+.tool-button[data-tool="draw"] { order: 3; }
+.tool-button[data-tool="text"] { order: 4; }
+.tool-button[data-tool="sticky-note"] { order: 5; }
+.tool-button[data-tool="image"] { order: 6; }
+.tool-button[data-tool="eraser"] { order: 7; }
+
+/* Info Panel */
+.info-panel {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+}
+
+.info-button {
+    background-color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.2s ease;
+}
+
+.info-button:hover {
+    background-color: #f0f0f0;
+}
+
+/* Zoom Indicator */
+.zoom-indicator {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    background-color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    transition: opacity 0.3s ease;
+}
+
+.zoom-indicator.fade {
+    opacity: 0.3;
+}
+
+.zoom-value {
+    font-weight: 500;
+    color: #333;
+}
+
+/* Keyboard Shortcut Indicator */
+.shortcut-indicator {
+    position: absolute;
+    bottom: 60px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    background-color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+    overflow: hidden; /* Prevent text from breaking out */
+}
+
+.shortcut-indicator:hover {
+    opacity: 1;
+}
+
+.shortcut-key {
+    background-color: #f0f0f0;
+    padding: 1px 4px;
+    border-radius: 4px;
+    font-weight: 600;
+    color: #333;
+    border: 1px solid #ddd;
+    margin-right: 5px;
+    display: inline-block;
+    min-width: 40px;
+    text-align: center;
+}
+
+.shortcut-text {
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+    margin-right: 3px;
+}
+
+/* Attribution */
+.attribution {
+    position: absolute;
+    bottom: 15px;
+    right: 20px;
+    font-size: 24px;
+    color: #ED682B; /* Changed from #666 to #ED682B */
+    font-family: 'Caveat', cursive;
+    opacity: 0.85; /* Changed from 0.5 to 0.85 */
+    mix-blend-mode: multiply; /* Added blend mode */
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+    /* Move toolbar to bottom on mobile */
+    .toolbar {
+        top: auto;
+        left: 50%;
+        bottom: 20px;
+        transform: translateX(-50%);
+        flex-direction: row;
+        padding: 12px 18px;
+        border-radius: 50px;
+        background-color: rgba(255, 255, 255, 0.95);
+        box-shadow: 0 2px 15px rgba(0, 0, 0, 0.15);
+        overflow-x: auto;
+        max-width: 90%;
+        justify-content: center;
+        /* Ensure toolbar is above other elements */
+        z-index: 200;
+    }
+    
+    /* Remove dividers in mobile view */
+    .toolbar::before,
+    .toolbar::after {
+        display: none;
+    }
+    
+    .tool-button {
+        width: 40px;
+        height: 40px;
+        order: unset !important; /* Reset order for mobile */
+        /* Add more space between buttons for easier tapping */
+        margin: 0 5px;
+        /* Make tap target larger than visual size */
+        position: relative;
+    }
+    
+    /* Create a larger invisible tap target */
+    .tool-button::before {
+        content: '';
+        position: absolute;
+        top: -10px;
+        left: -10px;
+        right: -10px;
+        bottom: -10px;
+        z-index: -1;
+    }
+    
+    /* Hide tooltips on mobile */
+    .tool-button::after {
+        display: none;
+    }
+    
+    /* Mobile tool button styling */
+    .tool-button svg path,
+    .tool-button svg rect {
+        fill: #666;
+    }
+    
+    /* Active tool in mobile view */
+    .tool-button.active {
+        background-color: #ED682B;
+    }
+    
+    /* Visual feedback for touch interaction */
+    .tool-button.active-touch {
+        background-color: #f0f0f0;
+        transform: scale(1.1);
+    }
+    
+    .tool-button.active svg path,
+    .tool-button.active svg rect {
+        fill: white;
+    }
+    
+    .info-panel {
+        top: 10px;
+        right: 10px;
+    }
+    
+    /* Move shortcut indicator to top right, left of the Help button */
+    .shortcut-indicator {
+        bottom: auto;
+        left: auto;
+        top: 10px;
+        right: 80px; /* Position to the left of the Help button */
+        font-size: 11px;
+        padding: 4px 10px;
+        max-width: 200px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        display: inline-flex;
+        align-items: center;
+        width: auto;
+        box-sizing: border-box;
+        background-color: rgba(255, 255, 255, 0.95);
+        border-radius: 30px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .shortcut-text {
+        order: 1; /* Make text appear first */
+        margin-right: 3px;
+    }
+    
+    .shortcut-key {
+        order: 2; /* Make key appear second */
+        min-width: 40px;
+    }
+    
+    /* Move zoom indicator below the Help button */
+    .zoom-indicator {
+        bottom: auto;
+        left: auto;
+        top: 50px;
+        right: 10px;
+        font-size: 12px;
+        padding: 4px 10px;
+    }
+    
+    .attribution {
+        top: 15px;
+        left: 15px;
+        bottom: auto;
+        right: auto;
+        font-size: 16px;
+        color: #ED682B; /* Ensure color is applied on mobile too */
+        opacity: 0.85; /* Ensure opacity is applied on mobile too */
+        mix-blend-mode: multiply; /* Ensure blend mode is applied on mobile too */
+    }
+}
+
+/* For very small screens */
+@media (max-width: 400px) {
+    .toolbar {
+        gap: 10px;
+        padding: 8px 12px;
+    }
+    
+    .tool-button {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .tool-button svg {
+        width: 20px;
+        height: 20px;
+    }
+    
+    /* Adjust shortcut indicator for very small screens */
+    .shortcut-indicator {
+        left: auto; /* Keep consistent with larger mobile view */
+        right: 70px; /* Slightly closer to the Help button on small screens */
+        max-width: 150px;
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+    
+    .shortcut-key {
+        padding: 1px 3px;
+        font-size: 10px;
+        margin-right: 0;
+        min-width: 35px;
+    }
+    
+    .shortcut-text {
+        margin-right: 2px;
+        font-size: 10px;
+    }
+    
+    .zoom-indicator {
+        bottom: auto;
+        left: auto;
+        top: 50px;
+        right: 10px;
+        font-size: 12px;
+        padding: 4px 10px;
+    }
+    
+    .attribution {
+        top: 15px;
+        left: 15px;
+        bottom: auto;
+        right: auto;
+        font-size: 16px;
+        color: #ED682B; /* Ensure color is applied on mobile too */
+        opacity: 0.85; /* Ensure opacity is applied on mobile too */
+        mix-blend-mode: multiply; /* Ensure blend mode is applied on mobile too */
+    }
+}
+
+/* Eraser Tool Styles */
+.eraser-preview {
+    position: absolute;
+    pointer-events: none;
+    z-index: 1000;
+    border-radius: 50%;
+    border: 2px solid #ED682B;
+    background-color: rgba(237, 104, 43, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.2s ease, height 0.2s ease;
+}
+
+/* Eraser Size Indicator */
+.eraser-size-indicator {
+    position: absolute;
+    bottom: 100px;
+    left: 20px;
+    background-color: white;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.eraser-size-indicator.visible {
+    opacity: 1;
+}
+
+/* Eraser Keyboard Shortcut Tooltip */
+.eraser-tooltip {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.eraser-tooltip.visible {
+    opacity: 1;
+} 
