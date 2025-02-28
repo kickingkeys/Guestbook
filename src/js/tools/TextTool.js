@@ -26,6 +26,16 @@ export class TextTool extends Tool {
         this.defaultBold = false;
         this.defaultItalic = false;
         this.defaultUnderline = false;
+        
+        // Mobile indicator properties
+        this.showMobileIndicator = false;
+        this.indicatorX = 0;
+        this.indicatorY = 0;
+        this.indicatorTimeout = null;
+        
+        // Bind event handlers
+        this.handleKeyDown = this.handleKeyDown.bind(this);
+        this.handleKeyPress = this.handleKeyPress.bind(this);
     }
     
     /**
@@ -45,6 +55,7 @@ export class TextTool extends Tool {
     deactivate() {
         super.deactivate();
         this.finishEditing();
+        this.hideMobileIndicator();
     }
     
     /**
@@ -61,6 +72,10 @@ export class TextTool extends Tool {
                 this.activeTextElement.setEditing(false);
                 console.log('Finished editing text element');
             }
+            
+            // Remove event listeners
+            document.removeEventListener('keydown', this.handleKeyDown);
+            document.removeEventListener('keypress', this.handleKeyPress);
             
             // Request a render update
             this.canvasManager.requestRender();
@@ -102,8 +117,12 @@ export class TextTool extends Tool {
         // Set as active text element
         this.activeTextElement = textElement;
         
-        // Create and show the text editor
-        this.showTextEditor(textElement);
+        // Add event listeners for keyboard input
+        document.addEventListener('keydown', this.handleKeyDown);
+        document.addEventListener('keypress', this.handleKeyPress);
+        
+        // Request a render update
+        this.canvasManager.requestRender();
         
         return textElement;
     }
@@ -121,8 +140,9 @@ export class TextTool extends Tool {
         // Set editing mode
         textElement.setEditing(true);
         
-        // Show the text editor
-        this.showTextEditor(textElement);
+        // Add event listeners for keyboard input
+        document.addEventListener('keydown', this.handleKeyDown);
+        document.addEventListener('keypress', this.handleKeyPress);
         
         // Request a render update
         this.canvasManager.requestRender();
@@ -131,86 +151,66 @@ export class TextTool extends Tool {
     }
     
     /**
-     * Show the text editor for a text element
-     * @param {TextElement} textElement - The text element to edit
+     * Handle key down events
+     * @param {KeyboardEvent} event - The keyboard event
      */
-    showTextEditor(textElement) {
-        // Create a text input element
-        const input = document.createElement('textarea');
-        input.value = textElement.text;
-        input.style.position = 'absolute';
-        input.style.fontFamily = textElement.fontFamily;
-        input.style.fontSize = textElement.fontSize + 'px';
-        input.style.color = textElement.color;
-        input.style.border = '2px solid #3B82F6';
-        input.style.padding = '4px';
-        input.style.margin = '0';
-        input.style.overflow = 'hidden';
-        input.style.background = 'rgba(255, 255, 255, 0.9)';
-        input.style.resize = 'none';
-        input.style.outline = 'none';
-        input.style.zIndex = '1000';
+    handleKeyDown(event) {
+        if (!this.activeTextElement) return;
         
-        // Set text style
-        if (textElement.bold) input.style.fontWeight = 'bold';
-        if (textElement.italic) input.style.fontStyle = 'italic';
-        if (textElement.underline) input.style.textDecoration = 'underline';
+        // Handle special keys
+        switch (event.key) {
+            case 'Escape':
+                // Cancel editing
+                event.preventDefault();
+                this.finishEditing();
+                break;
+                
+            case 'Enter':
+                if (!event.shiftKey) {
+                    // Finish editing on Enter without shift
+                    event.preventDefault();
+                    this.finishEditing();
+                } else {
+                    // Add a newline with Shift+Enter
+                    event.preventDefault();
+                    this.activeTextElement.update({ 
+                        text: this.activeTextElement.text + '\n' 
+                    });
+                    this.canvasManager.requestRender();
+                }
+                break;
+                
+            case 'Backspace':
+                // Delete the last character
+                event.preventDefault();
+                if (this.activeTextElement.text.length > 0) {
+                    this.activeTextElement.update({ 
+                        text: this.activeTextElement.text.slice(0, -1) 
+                    });
+                    this.canvasManager.requestRender();
+                }
+                break;
+        }
+    }
+    
+    /**
+     * Handle key press events
+     * @param {KeyboardEvent} event - The keyboard event
+     */
+    handleKeyPress(event) {
+        if (!this.activeTextElement) return;
         
-        // Position the input
-        const canvasRect = this.canvasManager.canvas.getBoundingClientRect();
-        const screenPos = this.canvasManager.viewport.canvasToScreen(textElement.x, textElement.y);
+        // Ignore special keys that are handled in keydown
+        if (event.key === 'Enter' || event.key === 'Escape') {
+            return;
+        }
         
-        input.style.left = (canvasRect.left + screenPos.x) + 'px';
-        input.style.top = (canvasRect.top + screenPos.y) + 'px';
-        input.style.minWidth = '100px';
-        input.style.minHeight = '30px';
-        
-        // Add the input to the document
-        document.body.appendChild(input);
-        
-        // Focus the input
-        input.focus();
-        
-        // Handle input changes
-        input.addEventListener('input', () => {
-            textElement.update({ text: input.value });
-            this.canvasManager.requestRender();
-            
-            // Adjust input size
-            input.style.width = Math.max(100, input.scrollWidth) + 'px';
-            input.style.height = Math.max(30, input.scrollHeight) + 'px';
+        // Add the character to the text
+        event.preventDefault();
+        this.activeTextElement.update({ 
+            text: this.activeTextElement.text + event.key 
         });
-        
-        // Handle blur event (finish editing)
-        input.addEventListener('blur', () => {
-            // Update the text element
-            textElement.update({ text: input.value });
-            
-            // Remove the input
-            document.body.removeChild(input);
-            
-            // Finish editing
-            this.finishEditing();
-        });
-        
-        // Handle key events
-        input.addEventListener('keydown', (e) => {
-            // Enter key without shift finishes editing
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                input.blur();
-            }
-            
-            // Escape key cancels editing
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                input.blur();
-            }
-        });
-        
-        // Adjust input size
-        input.style.width = Math.max(100, input.scrollWidth) + 'px';
-        input.style.height = Math.max(30, input.scrollHeight) + 'px';
+        this.canvasManager.requestRender();
     }
     
     /**
@@ -255,6 +255,163 @@ export class TextTool extends Tool {
             // Create a new text element
             this.createTextElement(canvasPoint.x, canvasPoint.y);
         }
+    }
+    
+    /**
+     * Handle touch start event (for mobile devices)
+     * @param {number} x - The x coordinate
+     * @param {number} y - The y coordinate
+     * @param {TouchEvent} event - The original event
+     */
+    onTouchStart(x, y, event) {
+        if (!this.active) return;
+        
+        // Prevent default to avoid unwanted scrolling
+        event.preventDefault();
+        
+        console.log('TextTool.onTouchStart - Tool active:', this.active);
+    }
+    
+    /**
+     * Handle touch move event (for mobile devices)
+     * @param {number} x - The x coordinate
+     * @param {number} y - The y coordinate
+     * @param {TouchEvent} event - The original event
+     */
+    onTouchMove(x, y, event) {
+        if (!this.active) return;
+        
+        // Prevent default to avoid unwanted scrolling
+        event.preventDefault();
+    }
+    
+    /**
+     * Handle touch end event (for mobile devices)
+     * @param {number} x - The x coordinate
+     * @param {number} y - The y coordinate
+     * @param {TouchEvent} event - The original event
+     */
+    onTouchEnd(x, y, event) {
+        if (!this.active) return;
+        
+        // Prevent default to avoid unwanted scrolling
+        event.preventDefault();
+        
+        console.log('TextTool.onTouchEnd - Processing touch at:', x, y);
+        
+        // Convert screen coordinates to canvas coordinates
+        const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
+        console.log('TextTool.onTouchEnd - Canvas point:', canvasPoint.x, canvasPoint.y);
+        
+        // Check if there's a text element at the touched position
+        const element = this.canvasManager.getElementAtPosition(canvasPoint.x, canvasPoint.y);
+        
+        if (element && element.type === 'text') {
+            // Edit existing text element
+            this.startEditing(element);
+        } else {
+            // Show mobile indicator at touch position
+            this.showMobileTextIndicator(canvasPoint.x, canvasPoint.y);
+            
+            // Create a new text element
+            this.createTextElement(canvasPoint.x, canvasPoint.y);
+        }
+    }
+    
+    /**
+     * Show a visual indicator for mobile users that they can start typing
+     * @param {number} x - The x coordinate in canvas space
+     * @param {number} y - The y coordinate in canvas space
+     */
+    showMobileTextIndicator(x, y) {
+        console.log('TextTool.showMobileTextIndicator - Showing indicator at:', x, y);
+        
+        // Store indicator position
+        this.indicatorX = x;
+        this.indicatorY = y;
+        this.showMobileIndicator = true;
+        
+        // Clear any existing timeout
+        if (this.indicatorTimeout) {
+            clearTimeout(this.indicatorTimeout);
+        }
+        
+        // Set timeout to hide the indicator after 3 seconds
+        this.indicatorTimeout = setTimeout(() => {
+            this.hideMobileIndicator();
+        }, 3000);
+        
+        // Request a render to show the indicator
+        this.canvasManager.requestRender();
+    }
+    
+    /**
+     * Hide the mobile text indicator
+     */
+    hideMobileIndicator() {
+        if (this.showMobileIndicator) {
+            this.showMobileIndicator = false;
+            this.canvasManager.requestRender();
+        }
+    }
+    
+    /**
+     * Render the mobile text indicator
+     * @param {CanvasRenderingContext2D} ctx - The canvas context
+     */
+    renderMobileIndicator(ctx) {
+        if (!this.showMobileIndicator) return;
+        
+        // Save context state
+        ctx.save();
+        
+        // Apply viewport transformations
+        const viewport = this.canvasManager.viewport;
+        ctx.translate(viewport.offsetX, viewport.offsetY);
+        ctx.scale(viewport.scale, viewport.scale);
+        
+        // Draw a blinking cursor and text box
+        const blinkVisible = Math.floor(Date.now() / 500) % 2 === 0;
+        
+        // Draw text box background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        const boxWidth = 100;
+        const boxHeight = 30;
+        ctx.fillRect(
+            this.indicatorX - 5,
+            this.indicatorY - 5,
+            boxWidth,
+            boxHeight
+        );
+        
+        // Draw text box border
+        ctx.strokeStyle = '#F97316'; // Orange color
+        ctx.lineWidth = 2 / viewport.scale; // Adjust for viewport scale
+        ctx.strokeRect(
+            this.indicatorX - 5,
+            this.indicatorY - 5,
+            boxWidth,
+            boxHeight
+        );
+        
+        // Draw placeholder text
+        ctx.fillStyle = '#888888';
+        ctx.font = `${this.defaultFontSize}px ${this.defaultFontFamily}`;
+        ctx.textBaseline = 'top';
+        ctx.fillText('Tap to type...', this.indicatorX, this.indicatorY);
+        
+        // Draw blinking cursor
+        if (blinkVisible) {
+            ctx.beginPath();
+            ctx.moveTo(this.indicatorX, this.indicatorY);
+            ctx.lineTo(this.indicatorX, this.indicatorY + this.defaultFontSize);
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 1 / viewport.scale; // Adjust for viewport scale
+            ctx.stroke();
+        }
+        
+        // Restore context state
+        ctx.restore();
     }
     
     /**

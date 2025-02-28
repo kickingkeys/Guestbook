@@ -19,8 +19,11 @@ class App {
         // Initialize selection manager
         this.selectionManager = new SelectionManager(this.canvasManager);
         
-        // Initialize tool manager with canvas manager
-        this.toolManager = new ToolManager(this.canvasManager);
+        // Initialize tool manager with canvas manager and selection manager
+        this.toolManager = new ToolManager(this.canvasManager, this.selectionManager);
+        
+        // Set tool manager reference in canvas manager
+        this.canvasManager.setToolManager(this.toolManager);
         
         // Pan and zoom state tracking
         this.isPanning = false;
@@ -160,20 +163,27 @@ class App {
         const infoButton = document.querySelector('.info-button');
         if (infoButton) {
             infoButton.addEventListener('click', () => {
-                alert(
+                const isMobile = window.matchMedia('(max-width: 768px)').matches;
+                
+                const commonInstructions = 
                     'Surya\'s Guestbook\n\n' +
-                    'Navigation:\n' +
-                    '- Pan: Spacebar + click/drag or two-finger touch\n' +
-                    '- Zoom: Mouse wheel or pinch gesture\n' +
-                    '- Reset View: Ctrl+R or Ctrl+0\n\n' +
                     'Tools:\n' +
-                    '- Drawing: Create freehand drawings\n' +
-                    '- Selection: Select and move elements\n' +
+                    '- Selection: Select, move, and resize elements\n' +
                     '- Hand: Pan the canvas\n' +
-                    '- Text: Add text elements\n' +
-                    '- Sticky Note: Add sticky notes\n' +
+                    '- Drawing: Create freehand drawings with orange pen\n' +
+                    '- Text: Add and edit text\n' +
+                    '- Sticky Note: Add colorful sticky notes\n' +
                     '- Image: Upload and place images\n' +
-                    '- Eraser: Precisely erase parts of drawings (use [ and ] to adjust size)\n\n' +
+                    '- Eraser: Precisely erase parts of drawings\n\n';
+                
+                const desktopInstructions = 
+                    'Desktop Controls:\n' +
+                    '- Pan: Spacebar + click/drag or middle mouse button\n' +
+                    '- Zoom: Mouse wheel (scroll up/down)\n' +
+                    '- Reset View: Ctrl+R or Ctrl+0\n' +
+                    '- Select Multiple: Shift+Click on elements\n' +
+                    '- Delete Elements: Select and press Delete/Backspace\n' +
+                    '- Adjust Eraser Size: [ and ] keys\n\n' +
                     'Keyboard Shortcuts:\n' +
                     '- Ctrl/Cmd + V: Selection tool\n' +
                     '- Ctrl/Cmd + H: Hand tool\n' +
@@ -182,7 +192,22 @@ class App {
                     '- Ctrl/Cmd + T: Text tool\n' +
                     '- Ctrl/Cmd + N: Sticky note tool\n' +
                     '- Ctrl/Cmd + I: Image tool\n' +
-                    '- [ and ]: Adjust eraser size when eraser tool is active'
+                    '- Escape: Cancel current action\n';
+                
+                const mobileInstructions = 
+                    'Mobile Controls:\n' +
+                    '- Pan: Two-finger touch and drag\n' +
+                    '- Zoom: Pinch gesture (two fingers)\n' +
+                    '- Select: Tap on an element\n' +
+                    '- Move: Drag a selected element\n' +
+                    '- Text: Tap where you want to add text, then tap to type\n' +
+                    '- Drawing: Touch and drag to draw\n' +
+                    '- Eraser: Touch and drag over drawings to erase\n';
+                
+                // Show appropriate instructions based on device
+                alert(
+                    commonInstructions + 
+                    (isMobile ? mobileInstructions : desktopInstructions)
                 );
             });
         }
@@ -679,14 +704,21 @@ class App {
         }
         
         const render = () => {
-            // Clear canvas
-            this.canvasManager.clear();
-            
-            // Draw grid
-            this.canvasManager.drawGrid();
-            
-            // Render canvas elements
-            this.canvasManager.render();
+            // Only render if no drag operation is in progress
+            // This prevents the render loop from interfering with element movement
+            // Check both mouse and touch interactions
+            if (!this.selectionManager.isDragging && !this.selectionManager.isResizing) {
+                // Clear canvas
+                this.canvasManager.clear();
+                
+                // Draw grid
+                this.canvasManager.drawGrid();
+                
+                // Render canvas elements
+                this.canvasManager.render();
+            } else {
+                console.log('Skipping render during drag/resize operation');
+            }
             
             // Request next frame
             requestAnimationFrame(render);

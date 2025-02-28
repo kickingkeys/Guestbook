@@ -94,6 +94,14 @@ export class CanvasManager {
     }
     
     /**
+     * Set the tool manager reference
+     * @param {ToolManager} toolManager - The tool manager instance
+     */
+    setToolManager(toolManager) {
+        this.toolManager = toolManager;
+    }
+    
+    /**
      * Clear the canvas
      */
     clear() {
@@ -230,6 +238,14 @@ export class CanvasManager {
                 this.ctx.restore();
             }
         });
+        
+        // Render mobile text indicator if the active tool is TextTool and has a renderMobileIndicator method
+        if (this.toolManager && this.toolManager.getCurrentTool()) {
+            const currentTool = this.toolManager.getCurrentTool();
+            if (currentTool.type === 'text' && typeof currentTool.renderMobileIndicator === 'function') {
+                currentTool.renderMobileIndicator(this.ctx);
+            }
+        }
     }
     
     /**

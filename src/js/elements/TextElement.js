@@ -78,19 +78,30 @@ export class TextElement extends CanvasElement {
         
         // Draw editing indicator if in edit mode
         if (this._isEditing) {
+            // Draw an orange border around the text to indicate it's being edited
             const metrics = ctx.measureText(this.text);
             const padding = 4;
             
-            ctx.strokeStyle = '#3B82F6';
+            ctx.strokeStyle = '#F97316'; // Orange color
             ctx.lineWidth = 2;
-            ctx.setLineDash([5, 3]);
             ctx.strokeRect(
                 -padding, 
                 -padding, 
                 metrics.width + padding * 2, 
                 this.fontSize + padding * 2
             );
-            ctx.setLineDash([]);
+            
+            // Draw a blinking cursor at the end of the text
+            const cursorVisible = Math.floor(Date.now() / 500) % 2 === 0;
+            if (cursorVisible) {
+                const cursorX = metrics.width + 2;
+                ctx.beginPath();
+                ctx.moveTo(cursorX, 0);
+                ctx.lineTo(cursorX, this.fontSize);
+                ctx.strokeStyle = '#000000';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
         }
         
         // Update text dimensions

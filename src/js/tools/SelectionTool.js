@@ -9,8 +9,9 @@ export class SelectionTool extends Tool {
     /**
      * Constructor
      * @param {CanvasManager} canvasManager - The canvas manager instance
+     * @param {SelectionManager} selectionManager - The selection manager instance (optional)
      */
-    constructor(canvasManager) {
+    constructor(canvasManager, selectionManager = null) {
         super('selection', {
             icon: 'select',
             cursor: 'default',
@@ -18,7 +19,8 @@ export class SelectionTool extends Tool {
         });
         
         this.canvasManager = canvasManager;
-        this.selectionManager = new SelectionManager(canvasManager);
+        // Use the provided selection manager or create a new one
+        this.selectionManager = selectionManager || new SelectionManager(canvasManager);
         this.isMultiSelect = false; // For Shift+Click multi-selection
     }
     
@@ -48,6 +50,7 @@ export class SelectionTool extends Tool {
      * @param {Event} event - The original event
      */
     onMouseDown(x, y, event) {
+        console.log(`SelectionTool.onMouseDown - Tool active: ${this.active}`);
         if (!this.active) return;
         
         // Check if Shift key is pressed for multi-select
@@ -55,50 +58,42 @@ export class SelectionTool extends Tool {
         
         // Convert screen coordinates to canvas coordinates
         const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
+        console.log(`SelectionTool.onMouseDown - Canvas point: (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
         
         // Get the currently selected element type (if any)
         let preferredType = null;
         if (this.selectionManager.selectedElements.length === 1) {
             preferredType = this.selectionManager.selectedElements[0].type;
+            console.log(`SelectionTool.onMouseDown - Preferred type: ${preferredType}`);
         }
-        
-        // Debug: Log the click position
-        console.log(`Click at canvas position: (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
         
         // Check if there's an element at the clicked position
         // If we have a selected element, try to keep selecting the same type
         const element = this.canvasManager.getElementAtPosition(canvasPoint.x, canvasPoint.y, preferredType);
         
-        // Debug: Log the result of the hit test
         if (element) {
-            console.log(`Hit element: ${element.type} (id: ${element.id})`);
+            console.log(`SelectionTool.onMouseDown - Hit element: ${element.type} (id: ${element.id})`);
+            console.log(`SelectionTool.onMouseDown - Element position: (${element.x.toFixed(2)}, ${element.y.toFixed(2)})`);
             
-            // For drawings, log the bounding box
-            if (element.type === 'drawing') {
-                const bbox = element.getBoundingBox();
-                console.log(`Drawing bounding box: x=${bbox.x.toFixed(2)}, y=${bbox.y.toFixed(2)}, w=${bbox.width.toFixed(2)}, h=${bbox.height.toFixed(2)}`);
-            }
-        } else {
-            console.log('No element hit');
-            
-            // Debug: Check all drawings to see if any are close
-            const drawings = this.canvasManager.elements.filter(e => e.type === 'drawing');
-            drawings.forEach(drawing => {
-                const bbox = drawing.getBoundingBox();
-                console.log(`Drawing ${drawing.id}: x=${bbox.x.toFixed(2)}, y=${bbox.y.toFixed(2)}, w=${bbox.width.toFixed(2)}, h=${bbox.height.toFixed(2)}`);
-            });
-        }
-        
-        if (element) {
             // Select the element (add to selection if Shift is pressed)
             this.selectionManager.selectElement(element, this.isMultiSelect);
+            console.log(`SelectionTool.onMouseDown - Selected elements count: ${this.selectionManager.selectedElements.length}`);
             
             // Start dragging the selected elements
             this.selectionManager.startDrag(canvasPoint.x, canvasPoint.y);
+            console.log(`SelectionTool.onMouseDown - Started dragging, isDragging: ${this.selectionManager.isDragging}`);
+            console.log(`SelectionTool.onMouseDown - Element start positions: ${JSON.stringify([...this.selectionManager.elementStartPositions.entries()].map(([id, pos]) => ({ id, x: pos.x, y: pos.y })))}`);
+            
+            // Prevent default behavior to avoid any unwanted interactions
+            event.preventDefault();
+            event.stopPropagation();
         } else {
+            console.log('SelectionTool.onMouseDown - No element hit');
+            
             // Clear selection if clicking on empty space and not multi-selecting
             if (!this.isMultiSelect) {
                 this.selectionManager.clearSelection();
+                console.log(`SelectionTool.onMouseDown - Cleared selection`);
             }
         }
     }
@@ -116,10 +111,24 @@ export class SelectionTool extends Tool {
         const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
         
         // Drag the selected elements
-        this.selectionManager.drag(canvasPoint.x, canvasPoint.y);
+        const isDragging = this.selectionManager.isDragging;
+        const isResizing = this.selectionManager.isResizing;
         
-        // Update cursor based on what's under it
-        this.updateCursor(x, y);
+        if (isDragging || isResizing) {
+            console.log(`SelectionTool.onMouseMove - Dragging: ${isDragging}, Resizing: ${isResizing}`);
+            console.log(`SelectionTool.onMouseMove - Canvas point: (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
+            console.log(`SelectionTool.onMouseMove - Selected elements: ${this.selectionManager.selectedElements.length}`);
+            
+            // Drag the selected elements
+            this.selectionManager.drag(canvasPoint.x, canvasPoint.y);
+            
+            // Prevent default behavior to avoid any unwanted interactions
+            event.preventDefault();
+            event.stopPropagation();
+        } else {
+            // Update cursor based on what's under it
+            this.updateCursor(x, y);
+        }
     }
     
     /**
@@ -131,8 +140,20 @@ export class SelectionTool extends Tool {
     onMouseUp(x, y, event) {
         if (!this.active) return;
         
+        console.log(`SelectionTool.onMouseUp - Stopping drag`);
+        
+        // Convert screen coordinates to canvas coordinates
+        const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
+        
         // Stop dragging
         this.selectionManager.stopDrag();
+        
+        // Force a render update to ensure the elements are in their final positions
+        this.canvasManager.requestRender();
+        
+        // Prevent default behavior to avoid any unwanted interactions
+        event.preventDefault();
+        event.stopPropagation();
     }
     
     /**
@@ -201,4 +222,110 @@ export class SelectionTool extends Tool {
             this.selectionManager.destroy();
         }
     }
-} 
+    
+    /**
+     * Handle touch start event (for mobile devices)
+     * @param {number} x - The x coordinate
+     * @param {number} y - The y coordinate
+     * @param {TouchEvent} event - The original event
+     */
+    onTouchStart(x, y, event) {
+        console.log(`SelectionTool.onTouchStart - Tool active: ${this.active}`);
+        if (!this.active) return;
+        
+        // Always prevent default to avoid unwanted scrolling on mobile
+        event.preventDefault();
+        
+        // Convert screen coordinates to canvas coordinates
+        const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
+        console.log(`SelectionTool.onTouchStart - Screen point: (${x.toFixed(2)}, ${y.toFixed(2)})`);
+        console.log(`SelectionTool.onTouchStart - Canvas point: (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
+        console.log(`SelectionTool.onTouchStart - Viewport scale: ${this.canvasManager.viewport.scale.toFixed(2)}`);
+        
+        // Get the currently selected element type (if any)
+        let preferredType = null;
+        if (this.selectionManager.selectedElements.length === 1) {
+            preferredType = this.selectionManager.selectedElements[0].type;
+            console.log(`SelectionTool.onTouchStart - Preferred type: ${preferredType}`);
+        }
+        
+        // Check if there's an element at the touched position
+        const element = this.canvasManager.getElementAtPosition(canvasPoint.x, canvasPoint.y, preferredType);
+        
+        if (element) {
+            console.log(`SelectionTool.onTouchStart - Hit element: ${element.type} (id: ${element.id})`);
+            console.log(`SelectionTool.onTouchStart - Element position: (${element.x.toFixed(2)}, ${element.y.toFixed(2)})`);
+            
+            // Select the element (no multi-select on touch)
+            this.selectionManager.selectElement(element, false);
+            console.log(`SelectionTool.onTouchStart - Selected elements count: ${this.selectionManager.selectedElements.length}`);
+            
+            // Start dragging the selected elements
+            this.selectionManager.startDrag(canvasPoint.x, canvasPoint.y);
+            console.log(`SelectionTool.onTouchStart - Started dragging, isDragging: ${this.selectionManager.isDragging}`);
+            console.log(`SelectionTool.onTouchStart - Element start positions: ${JSON.stringify([...this.selectionManager.elementStartPositions.entries()].map(([id, pos]) => ({ id, x: pos.x, y: pos.y })))}`);
+        } else {
+            console.log('SelectionTool.onTouchStart - No element hit');
+            
+            // Clear selection if touching on empty space
+            this.selectionManager.clearSelection();
+            console.log(`SelectionTool.onTouchStart - Cleared selection`);
+        }
+    }
+    
+    /**
+     * Handle touch move event (for mobile devices)
+     * @param {number} x - The x coordinate
+     * @param {number} y - The y coordinate
+     * @param {TouchEvent} event - The original event
+     */
+    onTouchMove(x, y, event) {
+        if (!this.active) return;
+        
+        // Always prevent default to avoid unwanted scrolling on mobile
+        event.preventDefault();
+        
+        // Convert screen coordinates to canvas coordinates
+        const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
+        
+        // Drag the selected elements
+        const isDragging = this.selectionManager.isDragging;
+        const isResizing = this.selectionManager.isResizing;
+        
+        if (isDragging || isResizing) {
+            console.log(`SelectionTool.onTouchMove - Dragging: ${isDragging}, Resizing: ${isResizing}`);
+            console.log(`SelectionTool.onTouchMove - Screen point: (${x.toFixed(2)}, ${y.toFixed(2)})`);
+            console.log(`SelectionTool.onTouchMove - Canvas point: (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
+            console.log(`SelectionTool.onTouchMove - Selected elements: ${this.selectionManager.selectedElements.length}`);
+            
+            // Drag the selected elements
+            this.selectionManager.drag(canvasPoint.x, canvasPoint.y);
+        }
+    }
+    
+    /**
+     * Handle touch end event (for mobile devices)
+     * @param {number} x - The x coordinate
+     * @param {number} y - The y coordinate
+     * @param {TouchEvent} event - The original event
+     */
+    onTouchEnd(x, y, event) {
+        if (!this.active) return;
+        
+        // Always prevent default to avoid unwanted scrolling on mobile
+        event.preventDefault();
+        
+        console.log(`SelectionTool.onTouchEnd - Stopping drag`);
+        console.log(`SelectionTool.onTouchEnd - Screen point: (${x.toFixed(2)}, ${y.toFixed(2)})`);
+        
+        // Convert screen coordinates to canvas coordinates
+        const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
+        console.log(`SelectionTool.onTouchEnd - Canvas point: (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
+        
+        // Stop dragging
+        this.selectionManager.stopDrag();
+        
+        // Force a render update to ensure the elements are in their final positions
+        this.canvasManager.requestRender();
+    }
+}

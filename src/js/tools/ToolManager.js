@@ -14,15 +14,16 @@ export class ToolManager {
     /**
      * Constructor
      * @param {CanvasManager} canvasManager - The canvas manager instance
+     * @param {SelectionManager} selectionManager - The selection manager instance (optional)
      */
-    constructor(canvasManager) {
+    constructor(canvasManager, selectionManager = null) {
         this.canvasManager = canvasManager;
         this.currentTool = null;
         this.eventListeners = {};
         
         // Initialize tools
         this.tools = {
-            selection: new SelectionTool(canvasManager),
+            selection: new SelectionTool(canvasManager, selectionManager),
             hand: new HandTool(canvasManager),
             drawing: new DrawingTool(canvasManager),
             eraser: new EraserTool(canvasManager),
@@ -63,15 +64,10 @@ export class ToolManager {
     
     /**
      * Get the current tool
-     * @returns {string} - The name of the current tool
+     * @returns {Object} - The current tool object
      */
     getCurrentTool() {
-        for (const [name, tool] of Object.entries(this.tools)) {
-            if (tool === this.currentTool) {
-                return name;
-            }
-        }
-        return null;
+        return this.currentTool;
     }
     
     /**
@@ -98,7 +94,20 @@ export class ToolManager {
      * @returns {Object|null} - The current tool configuration or null if no tool is selected
      */
     getCurrentToolConfig() {
-        const currentToolName = this.getCurrentTool();
+        const currentTool = this.getCurrentTool();
+        if (!currentTool) {
+            return null;
+        }
+        
+        // Find the name of the current tool
+        let currentToolName = null;
+        for (const [name, tool] of Object.entries(this.tools)) {
+            if (tool === currentTool) {
+                currentToolName = name;
+                break;
+            }
+        }
+        
         if (!currentToolName) {
             return null;
         }

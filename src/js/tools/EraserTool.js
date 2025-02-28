@@ -93,6 +93,9 @@ export class EraserTool extends Tool {
         
         // Show the eraser preview
         this.updatePreviewPosition(x, y);
+        if (this.previewElement) {
+            this.previewElement.style.display = 'block';
+        }
         
         // Check for elements under the eraser and erase them
         this.eraseElementsAtPosition(x, y);
@@ -110,6 +113,11 @@ export class EraserTool extends Tool {
         // Update the eraser preview position
         this.updatePreviewPosition(x, y);
         
+        // Only show the preview when the mouse button is pressed
+        if (this.previewElement) {
+            this.previewElement.style.display = event.buttons === 1 ? 'block' : 'none';
+        }
+        
         // If mouse button is pressed, erase elements
         if (event.buttons === 1) {
             this.eraseElementsAtPosition(x, y);
@@ -125,6 +133,11 @@ export class EraserTool extends Tool {
     onMouseUp(x, y, event) {
         if (!this.active) return;
         
+        // Hide the eraser preview
+        if (this.previewElement) {
+            this.previewElement.style.display = 'none';
+        }
+        
         // Final erase at the release position
         this.eraseElementsAtPosition(x, y);
     }
@@ -136,7 +149,7 @@ export class EraserTool extends Tool {
      */
     updatePreviewPosition(x, y) {
         if (this.previewElement) {
-            this.previewElement.style.display = 'block';
+            // Don't change display property here, just update position
             this.previewElement.style.left = `${x}px`;
             this.previewElement.style.top = `${y}px`;
         }
@@ -434,6 +447,9 @@ export class EraserTool extends Tool {
         
         // Show the eraser preview
         this.updatePreviewPosition(x, y);
+        if (this.previewElement) {
+            this.previewElement.style.display = 'block';
+        }
         
         // Check for elements under the eraser and erase them
         this.eraseElementsAtPosition(x, y);
@@ -454,6 +470,11 @@ export class EraserTool extends Tool {
         // Update the eraser preview position
         this.updatePreviewPosition(x, y);
         
+        // Make sure the preview is visible during touch
+        if (this.previewElement) {
+            this.previewElement.style.display = 'block';
+        }
+        
         // Erase elements at the touch position
         this.eraseElementsAtPosition(x, y);
     }
@@ -466,6 +487,11 @@ export class EraserTool extends Tool {
      */
     onTouchEnd(x, y, event) {
         if (!this.active) return;
+        
+        // Hide the eraser preview
+        if (this.previewElement) {
+            this.previewElement.style.display = 'none';
+        }
         
         // Final erase at the release position
         this.eraseElementsAtPosition(x, y);

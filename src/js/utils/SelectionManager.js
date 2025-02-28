@@ -92,6 +92,7 @@ export class SelectionManager {
      * @param {number} y - The y coordinate
      */
     startDrag(x, y) {
+        console.log(`SelectionManager.startDrag - Selected elements: ${this.selectedElements.length}`);
         if (this.selectedElements.length === 0) return;
         
         // Check if we're clicking on a resize handle
@@ -104,6 +105,8 @@ export class SelectionManager {
             this.resizeStartX = x;
             this.resizeStartY = y;
             
+            console.log(`SelectionManager.startDrag - Starting resize with handle: ${this.resizeHandle}`);
+            
             // Store the element's starting size and position
             if (this.resizeElement.type === 'image') {
                 this.elementStartSize = {
@@ -114,6 +117,7 @@ export class SelectionManager {
                     x: this.resizeElement.x,
                     y: this.resizeElement.y
                 };
+                console.log(`SelectionManager.startDrag - Element start size: ${this.elementStartSize.width}x${this.elementStartSize.height}`);
             }
             return;
         }
@@ -123,13 +127,17 @@ export class SelectionManager {
         this.dragStartX = x;
         this.dragStartY = y;
         
+        console.log(`SelectionManager.startDrag - Starting drag at (${x.toFixed(2)}, ${y.toFixed(2)})`);
+        
         // Store the starting position of each selected element
         this.elementStartPositions.clear();
         this.selectedElements.forEach(element => {
+            // Make sure we're using the current position of the element
             this.elementStartPositions.set(element.id, {
                 x: element.x,
                 y: element.y
             });
+            console.log(`SelectionManager.startDrag - Element ${element.id} start position: (${element.x.toFixed(2)}, ${element.y.toFixed(2)})`);
         });
     }
     
@@ -186,32 +194,48 @@ export class SelectionManager {
     drag(x, y) {
         // Handle resizing
         if (this.isResizing && this.resizeElement) {
+            console.log(`SelectionManager.drag - Resizing element ${this.resizeElement.id}`);
             this.resize(x, y);
             return;
         }
         
         // Handle dragging
-        if (!this.isDragging || this.selectedElements.length === 0) return;
+        if (!this.isDragging || this.selectedElements.length === 0) {
+            // Not dragging or no elements selected
+            console.log(`SelectionManager.drag - Not dragging: isDragging=${this.isDragging}, selectedElements=${this.selectedElements.length}`);
+            return;
+        }
         
         // Calculate the distance moved
         const dx = x - this.dragStartX;
         const dy = y - this.dragStartY;
         
+        console.log(`SelectionManager.drag - Moving by (${dx.toFixed(2)}, ${dy.toFixed(2)})`);
+        console.log(`SelectionManager.drag - Current position: (${x.toFixed(2)}, ${y.toFixed(2)}), Start position: (${this.dragStartX.toFixed(2)}, ${this.dragStartY.toFixed(2)})`);
+        
         // Update the position of each selected element
         this.selectedElements.forEach(element => {
             const startPos = this.elementStartPositions.get(element.id);
             if (startPos) {
+                const newX = startPos.x + dx;
+                const newY = startPos.y + dy;
+                
+                console.log(`SelectionManager.drag - Moving element ${element.id} from (${startPos.x.toFixed(2)}, ${startPos.y.toFixed(2)}) to (${newX.toFixed(2)}, ${newY.toFixed(2)})`);
+                
                 // Use the update method to ensure proper handling of the position change
                 element.update({
-                    x: startPos.x + dx,
-                    y: startPos.y + dy
+                    x: newX,
+                    y: newY
                 });
                 
-                // Update the start position for the next drag
+                // Update the start position for the next drag operation
+                // This is important to prevent the element from snapping back
                 this.elementStartPositions.set(element.id, {
-                    x: element.x,
-                    y: element.y
+                    x: newX,
+                    y: newY
                 });
+            } else {
+                console.warn(`SelectionManager.drag - No start position for element ${element.id}`);
             }
         });
         
@@ -302,6 +326,13 @@ export class SelectionManager {
      * Stop dragging or resizing the selected elements
      */
     stopDrag() {
+        console.log(`SelectionManager.stopDrag - isDragging: ${this.isDragging}, isResizing: ${this.isResizing}`);
+        
+        // Request a final render update to ensure the elements are in their final positions
+        if (this.isDragging || this.isResizing) {
+            this.canvasManager.requestRender();
+        }
+        
         this.isDragging = false;
         this.elementStartPositions.clear();
         

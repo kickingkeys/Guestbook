@@ -20,7 +20,7 @@ export class DrawingTool extends Tool {
         this.canvasManager = canvasManager;
         this.isDrawing = false;
         this.currentPath = null;
-        this.strokeColor = '#000000';
+        this.strokeColor = '#ED682B';
         this.strokeWidth = 2;
         this.currentElement = null;
     }
