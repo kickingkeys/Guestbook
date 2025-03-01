@@ -81,7 +81,7 @@ body {
     height: 1px;
     background-color: #e0e0e0;
     margin: 5px auto;
-    order: 6; /* After the first 6 tools */
+    order: 7; /* Changed from 6 to 7 to appear after the camera tool */
 }
 
 .tool-button {
@@ -142,7 +142,8 @@ body {
 .tool-button[data-tool="text"] { order: 4; }
 .tool-button[data-tool="sticky-note"] { order: 5; }
 .tool-button[data-tool="image"] { order: 6; }
-.tool-button[data-tool="eraser"] { order: 7; }
+.tool-button[data-tool="camera"] { order: 7; }
+.tool-button[data-tool="eraser"] { order: 8; }
 
 /* Info Panel */
 .info-panel {
@@ -485,4 +486,334 @@ body {
 
 .eraser-tooltip.visible {
     opacity: 1;
+}
+
+/* Camera Interface Styles */
+.camera-interface {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000;
+    z-index: 1000;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Mobile-specific camera interface styles */
+.camera-interface.mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    padding: 0;
+    margin: 0;
+    background-color: #000;
+}
+
+.camera-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background-color: #000;
+    transition: opacity 0.3s ease;
+}
+
+/* Flash effect for photo capture */
+.camera-preview.flash {
+    animation: flash-animation 0.3s;
+}
+
+@keyframes flash-animation {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; background-color: white; }
+    100% { opacity: 1; }
+}
+
+/* Loading indicator */
+.camera-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1010;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #ED682B;
+    animation: spin 1s ease-in-out infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-text {
+    color: white;
+    font-size: 16px;
+    text-align: center;
+}
+
+.camera-capture-button {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background-color: rgba(237, 104, 43, 0.8);
+    border: 4px solid white;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1001;
+    transition: background-color 0.2s ease;
+}
+
+.camera-capture-button:hover {
+    background-color: rgba(237, 104, 43, 1);
+}
+
+.camera-capture-button svg {
+    width: 80%;
+    height: 80%;
+}
+
+.camera-switch-button {
+    position: absolute;
+    bottom: 40px;
+    right: 40px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 2px solid white;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1001;
+    transition: background-color 0.2s ease;
+}
+
+.camera-switch-button:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.camera-switch-button svg {
+    width: 60%;
+    height: 60%;
+}
+
+.camera-close-button {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 2px solid white;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1001;
+    transition: background-color 0.2s ease;
+}
+
+.camera-close-button:hover {
+    background-color: rgba(0, 0, 0, 0.7);
+}
+
+.camera-close-button svg {
+    width: 60%;
+    height: 60%;
+}
+
+.camera-error-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    max-width: 80%;
+    text-align: center;
+    display: none;
+    z-index: 1002;
+    border: 1px solid #ED682B;
+}
+
+.camera-fallback-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 30px;
+    border-radius: 10px;
+    max-width: 80%;
+    text-align: center;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1002;
+}
+
+.camera-fallback-message .fallback-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+}
+
+.camera-fallback-message h3 {
+    margin: 0 0 15px 0;
+    color: #ED682B;
+    font-size: 24px;
+}
+
+.camera-fallback-message p {
+    margin: 5px 0;
+    font-size: 16px;
+    line-height: 1.4;
+}
+
+.camera-fallback-message .fallback-close-button {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #ED682B;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.2s ease;
+}
+
+.camera-fallback-message .fallback-close-button:hover {
+    background-color: #ff7f3f;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 768px) {
+    .camera-preview {
+        width: 100%;
+        height: 100%;
+    }
+    
+    .camera-capture-button {
+        bottom: 40px;
+        width: 60px;
+        height: 60px;
+    }
+    
+    .camera-capture-button svg {
+        width: 70%;
+        height: 70%;
+    }
+    
+    .camera-switch-button {
+        bottom: 45px;
+        right: 30px;
+        width: 45px;
+        height: 45px;
+    }
+    
+    .camera-close-button {
+        top: 15px;
+        right: 15px;
+    }
+    
+    .camera-fallback-message {
+        padding: 20px;
+    }
+    
+    .camera-fallback-message .fallback-icon {
+        font-size: 36px;
+    }
+    
+    .camera-fallback-message h3 {
+        font-size: 20px;
+    }
+    
+    .camera-fallback-message p {
+        font-size: 14px;
+    }
+    
+    /* Improve touch targets for mobile */
+    .tool-button {
+        width: 45px;
+        height: 45px;
+        margin: 5px;
+    }
+    
+    /* Make rotation handles easier to tap on mobile */
+    .rotation-handle {
+        width: 30px;
+        height: 30px;
+    }
+}
+
+/* Rotation cursor */
+.rotation-cursor {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'><path d='M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z' fill='%23ED682B'/></svg>") 16 16, auto;
+}
+
+/* Touch-friendly rotation handle styles */
+.rotation-handle {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    background-color: #ED682B;
+    border: 2px solid white;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 100;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+}
+
+/* Improved mobile touch feedback */
+@media (max-width: 768px) {
+    .tool-button:active {
+        background-color: rgba(237, 104, 43, 0.3);
+    }
+    
+    .camera-capture-button:active,
+    .camera-switch-button:active,
+    .camera-close-button:active {
+        transform: scale(0.95);
+    }
+    
+    .camera-capture-button:active {
+        transform: translateX(-50%) scale(0.95);
+    }
+}
+
+/* Ensure the camera tool icon in the toolbar is properly styled */
+.tool-button[data-tool="camera"] svg {
+    fill: #000;
+}
+
+.tool-button[data-tool="camera"].active svg {
+    fill: #ED682B;
 } 

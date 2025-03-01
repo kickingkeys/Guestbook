@@ -250,12 +250,13 @@ export class CanvasManager {
     
     /**
      * Draw selection indicators around an element
-     * @param {Object} element - The selected element
+     * @param {Object} element - The element to draw selection indicators for
      */
     drawSelectionIndicators(element) {
         if (!this.ctx) return;
         
         const boundingBox = element.getBoundingBox();
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
         
         // Draw selection border
         this.ctx.strokeStyle = '#ED682B';
@@ -272,8 +273,8 @@ export class CanvasManager {
         this.ctx.strokeStyle = '#ED682B';
         this.ctx.lineWidth = 1;
         
-        // Corner handles
-        const handleSize = 8;
+        // Corner handles - larger on mobile
+        const handleSize = isMobile ? 14 : 8;
         const corners = [
             { x: boundingBox.x - handleSize/2, y: boundingBox.y - handleSize/2 },
             { x: boundingBox.x + boundingBox.width - handleSize/2, y: boundingBox.y - handleSize/2 },
@@ -286,6 +287,84 @@ export class CanvasManager {
             this.ctx.rect(corner.x, corner.y, handleSize, handleSize);
             this.ctx.fill();
             this.ctx.stroke();
+        });
+        
+        // Draw rotation indicators at each corner
+        const rotationIndicatorDistance = isMobile ? 25 : 15;
+        const cornerPositions = [
+            { x: boundingBox.x, y: boundingBox.y, label: 'tl' },
+            { x: boundingBox.x + boundingBox.width, y: boundingBox.y, label: 'tr' },
+            { x: boundingBox.x, y: boundingBox.y + boundingBox.height, label: 'bl' },
+            { x: boundingBox.x + boundingBox.width, y: boundingBox.y + boundingBox.height, label: 'br' }
+        ];
+        
+        // Draw small curved lines at each corner to indicate rotation
+        this.ctx.strokeStyle = 'rgba(237, 104, 43, 0.6)'; // Semi-transparent orange
+        this.ctx.lineWidth = isMobile ? 2.5 : 1.5;
+        
+        cornerPositions.forEach(corner => {
+            // Draw a small arc to indicate rotation
+            this.ctx.beginPath();
+            
+            // Determine the start and end angles based on which corner
+            let startAngle, endAngle;
+            
+            switch(corner.label) {
+                case 'tl':
+                    startAngle = Math.PI;
+                    endAngle = 1.5 * Math.PI;
+                    break;
+                case 'tr':
+                    startAngle = 1.5 * Math.PI;
+                    endAngle = 2 * Math.PI;
+                    break;
+                case 'bl':
+                    startAngle = 0.5 * Math.PI;
+                    endAngle = Math.PI;
+                    break;
+                case 'br':
+                    startAngle = 0;
+                    endAngle = 0.5 * Math.PI;
+                    break;
+            }
+            
+            this.ctx.arc(corner.x, corner.y, rotationIndicatorDistance, startAngle, endAngle);
+            this.ctx.stroke();
+            
+            // On mobile, add a visible rotation handle at the end of each arc
+            if (isMobile) {
+                const handleRadius = 12;
+                let handleX, handleY;
+                
+                // Calculate position for the rotation handle
+                switch(corner.label) {
+                    case 'tl':
+                        handleX = corner.x - rotationIndicatorDistance;
+                        handleY = corner.y - rotationIndicatorDistance;
+                        break;
+                    case 'tr':
+                        handleX = corner.x + rotationIndicatorDistance;
+                        handleY = corner.y - rotationIndicatorDistance;
+                        break;
+                    case 'bl':
+                        handleX = corner.x - rotationIndicatorDistance;
+                        handleY = corner.y + rotationIndicatorDistance;
+                        break;
+                    case 'br':
+                        handleX = corner.x + rotationIndicatorDistance;
+                        handleY = corner.y + rotationIndicatorDistance;
+                        break;
+                }
+                
+                // Draw the rotation handle
+                this.ctx.beginPath();
+                this.ctx.arc(handleX, handleY, handleRadius / 2, 0, 2 * Math.PI);
+                this.ctx.fillStyle = '#ED682B';
+                this.ctx.fill();
+                this.ctx.strokeStyle = '#FFFFFF';
+                this.ctx.lineWidth = 2;
+                this.ctx.stroke();
+            }
         });
     }
     

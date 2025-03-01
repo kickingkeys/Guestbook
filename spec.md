@@ -1,12 +1,13 @@
 # Interactive Canvas Implementation Specification
 
 ## Project Overview
-An interactive canvas web application with a dotted grid background where users can create, manipulate, and share content in real-time. The application allows adding sticky notes, drawing with different tools, and arranging images.
+An interactive canvas web application with a dotted grid background where users can create, manipulate, and share content in real-time. The application allows adding sticky notes, drawing with different tools, capturing and adding Polaroid-style photos, and arranging images.
 
 ## Color Scheme
 - **Background Color**: #FAF8F4 (light beige)
 - **Primary Accent Color**: #ED682B (orange)
 - **Text on Sticky Notes**: White (#FFFFFF)
+- **Polaroid Frame**: White (#FFFFFF) with subtle shadow
 
 ## Phase-by-Phase Implementation Approach
 
@@ -110,18 +111,35 @@ This implementation plan is designed to create a working frontend version that c
 
 **Deliverable**: A polished user interface with intuitive mode switching and smooth interactions.
 
-### Phase 9: Performance Optimization (1-2 days)
+### Phase 9: Camera Capture & Polaroid Effect (3-4 days)
+**Goal**: Add the ability to capture photos from the device camera and add them to the canvas with a Polaroid-style effect.
+
+**Implementation Steps**:
+1. Create a camera tool class that extends the base Tool class
+2. Implement camera access using the MediaDevices API
+3. Design and implement a camera interface with capture button
+4. Create a polaroid formatter utility to apply the frame effect
+5. Handle camera permissions and provide fallbacks
+6. Implement mobile-specific camera handling (device orientation, aspect ratios)
+7. Add a new toolbar button for the camera tool
+8. Implement keyboard shortcut (Ctrl+C)
+9. Test camera functionality across desktop and mobile devices
+
+**Deliverable**: A functional camera tool that allows users to capture photos, automatically applies a Polaroid-style effect, and adds them to the canvas.
+
+### Phase 10: Performance Optimization (1-2 days)
 **Goal**: Optimize performance for smooth operation.
 
 **Implementation Steps**:
 1. Implement requestAnimationFrame for smooth rendering
 2. Add viewport culling to only render visible elements
 3. Optimize event handling
-4. Test performance across different devices
+4. Optimize media handling for camera captures
+5. Test performance across different devices
 
 **Deliverable**: A performant application that runs smoothly across different devices.
 
-### Phase 10: Final Testing & Showcase Preparation (1-2 days)
+### Phase 11: Final Testing & Showcase Preparation (1-2 days)
 **Goal**: Prepare the application for classroom showcase and testing.
 
 **Implementation Steps**:
@@ -164,10 +182,17 @@ This implementation plan is designed to create a working frontend version that c
 - Handles transformation operations
 - Manages selection UI
 
+#### Camera Manager
+- Handles camera access and permissions
+- Manages video stream
+- Provides camera switching functionality
+- Handles orientation issues
+
 ### Event Handling System
 - Pointer events (down, move, up)
 - Keyboard events for shortcuts
 - Touch events for mobile support
+- Media events for camera handling
 - Custom events for application state
 
 ### Rendering Pipeline
@@ -176,6 +201,7 @@ This implementation plan is designed to create a working frontend version that c
 - Render all elements in z-index order
 - Render selection indicators
 - Render UI overlays
+- Render camera preview when active
 
 ## Data Models
 
@@ -211,6 +237,7 @@ This implementation plan is designed to create a working frontend version that c
 - Image source (URL or data)
 - Dimensions (width, height)
 - Original dimensions
+- Supporting both uploaded and camera-captured images
 
 ## Implementation Guidelines
 
@@ -225,17 +252,20 @@ This implementation plan is designed to create a working frontend version that c
 - Implement viewport culling (only render visible elements)
 - Use object pooling for frequent operations
 - Batch updates when possible
+- Optimize camera and image handling for memory efficiency
 
 ### Cross-Browser Compatibility
 - Test on major browsers (Chrome, Firefox, Safari, Edge)
 - Provide fallbacks for unsupported features
 - Use feature detection rather than browser detection
+- Handle camera compatibility issues gracefully
 
 ### Mobile Considerations
 - Support touch events for all interactions
 - Ensure proper viewport handling on mobile devices
 - Test on various screen sizes
 - Optimize for touch targets and mobile UX
+- Handle device orientation changes for camera
 
 ### Accessibility
 - Support keyboard navigation where possible
@@ -254,6 +284,14 @@ This implementation plan is designed to create a working frontend version that c
 - Vertical orientation on the left side
 - Tool icons with visual selection state
 - Responsive design for different screen sizes
+- Camera tool icon added to the toolbar
+
+### Camera Interface
+- Camera preview overlay when tool is active
+- Capture button prominently displayed
+- Camera switching button (front/back) on mobile
+- Permission request UI with clear instructions
+- Loading and processing indicators
 
 ### Information Panel
 - Located in the top-right corner
@@ -282,6 +320,12 @@ This implementation plan is designed to create a working frontend version that c
 - Gather feedback on usability and intuitiveness
 - Identify pain points and areas for improvement
 
+### Camera Testing
+- Test camera access on various devices and browsers
+- Verify proper handling of permissions
+- Test different camera orientations and aspect ratios
+- Verify the Polaroid effect rendering
+
 ## Showcase Preparation
 
 ### Demonstration Scenarios
@@ -290,6 +334,7 @@ This implementation plan is designed to create a working frontend version that c
 3. **Sticky Note Creation**: Add and edit sticky notes
 4. **Object Manipulation**: Select, move, and delete canvas elements
 5. **Image Upload**: Upload and position an image on the canvas
+6. **Camera Capture**: Capture a photo and show how it appears on the canvas with the Polaroid effect
 
 ### Documentation for Testers
 - Provide a quick start guide
@@ -300,7 +345,7 @@ This implementation plan is designed to create a working frontend version that c
 ## Project Timeline
 - **Phase 1-3**: Canvas setup, navigation, and toolbar (Week 1)
 - **Phase 4-6**: Drawing, sticky notes, and selection (Week 2)
-- **Phase 7-8**: Image handling and UI polish (Week 3)
-- **Phase 9-10**: Optimization and showcase preparation (Week 4)
+- **Phase 7-9**: Image handling, UI polish, and camera feature (Week 3)
+- **Phase 10-11**: Optimization and showcase preparation (Week 4)
 
-This specification provides a comprehensive guide for implementing the interactive canvas application using vanilla HTML, CSS, and JavaScript. The phase-by-phase approach ensures that you have a functional, testable feature at the end of each phase, making it ideal for classroom showcase and testing. 
+This specification provides a comprehensive guide for implementing the interactive canvas application using vanilla HTML, CSS, and JavaScript. The phase-by-phase approach ensures that you have a functional, testable feature at the end of each phase, making it ideal for classroom showcase and testing.

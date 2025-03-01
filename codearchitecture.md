@@ -2,13 +2,12 @@
 
 ## Overview
 
-The Guestbook application is an interactive canvas-based drawing and annotation tool that works on both desktop and mobile devices. It allows users to create, edit, and manipulate various elements on a canvas, including drawings, text, sticky notes, and images. The application is built with vanilla JavaScript using a modular, object-oriented approach.
+The Guestbook application is an interactive canvas-based drawing and annotation tool that works on both desktop and mobile devices. It allows users to create, edit, and manipulate various elements on a canvas, including drawings, text, sticky notes, images, and camera captures. The application is built with vanilla JavaScript using a modular, object-oriented approach.
 
 ## Core Architecture
 
 The application follows a component-based architecture with clear separation of concerns:
 
-```
 ├── App (Main Controller)
 │   ├── CanvasManager (Canvas Rendering)
 │   │   └── Viewport (View Transformation)
@@ -19,10 +18,10 @@ The application follows a component-based architecture with clear separation of 
 │   │   ├── TextTool
 │   │   ├── StickyNoteTool
 │   │   ├── ImageTool
+│   │   ├── CameraTool
 │   │   └── EraserTool
 │   ├── ModeManager (Application Mode)
 │   └── SelectionManager (Element Selection)
-```
 
 ## Key Components
 
@@ -131,6 +130,17 @@ Handles image upload and placement:
 - Handles image loading and placement
 - Provides image resizing functionality
 
+### CameraTool (src/js/tools/CameraTool.js)
+
+Captures photos from the device camera and adds them to the canvas:
+- Requests camera access using WebRTC
+- Creates a live camera preview interface
+- Captures still frames from the video stream
+- Processes the image with a Polaroid-style frame effect
+- Places the captured and formatted photo on the canvas
+- Provides appropriate fallbacks for unsupported browsers
+- Handles both desktop and mobile camera orientations
+
 ### EraserTool (src/js/tools/EraserTool.js)
 
 Precisely erases parts of drawings:
@@ -182,6 +192,7 @@ Represents an image:
 - Handles image loading
 - Renders the image on the canvas
 - Provides resizing functionality
+- Used for both uploaded images and camera captures
 
 ## Event Handling
 
@@ -191,6 +202,7 @@ The application uses a comprehensive event handling system:
 - Keyboard events for shortcuts and text input
 - Wheel events for zooming
 - Custom events for tool and mode changes
+- Media events for camera handling
 
 ## Mobile Support
 
@@ -200,6 +212,28 @@ The application is designed to work well on mobile devices:
 - Mobile-specific UI adjustments
 - Visual indicators for touch interactions
 - Responsive layout adaptation
+- Mobile camera support with orientation handling
+
+## Camera Feature Implementation
+
+The camera functionality is implemented using the following components:
+
+### CameraManager (src/js/utils/CameraManager.js)
+
+Helper class for managing camera interactions:
+- Requests and manages camera permissions
+- Handles video stream initialization and cleanup
+- Provides methods to switch between front and back cameras
+- Manages camera orientation and aspect ratio
+
+### PolaroidFormatter (src/js/utils/PolaroidFormatter.js)
+
+Utility class for applying the Polaroid-style effect:
+- Takes a captured image as input
+- Creates a new canvas for composition
+- Draws the white frame border
+- Applies subtle shadow effects
+- Returns a formatted image data URL
 
 ## Rendering Pipeline
 
@@ -219,6 +253,7 @@ The UI is implemented with HTML and CSS:
 - Shortcut indicator
 - Help button with instructions
 - Eraser size indicator
+- Camera interface with capture button
 - Mobile-responsive layout
 
 ## Help System
@@ -256,8 +291,6 @@ To add new features to the application:
 4. Test the changes on both desktop and mobile
 
 ## File Structure
-
-```
 ├── index.html              # Main HTML file
 ├── src/
 │   ├── css/
@@ -274,6 +307,7 @@ To add new features to the application:
 │       │   ├── StickyNoteElement.js # Sticky note implementation
 │       │   └── TextElement.js    # Text element implementation
 │       ├── tools/
+│       │   ├── CameraTool.js     # Camera tool implementation
 │       │   ├── DrawingTool.js    # Drawing tool implementation
 │       │   ├── EraserTool.js     # Eraser tool implementation
 │       │   ├── HandTool.js       # Hand (pan) tool implementation
@@ -284,11 +318,11 @@ To add new features to the application:
 │       │   ├── Tool.js           # Base tool class
 │       │   └── ToolManager.js    # Tool management
 │       └── utils/
+│           ├── CameraManager.js  # Camera access and management
 │           ├── ModeManager.js    # Application mode management
+│           ├── PolaroidFormatter.js # Image formatting utilities
 │           └── SelectionManager.js # Element selection management
-```
 
 ## Conclusion
 
-The Guestbook application is built with a modular, object-oriented architecture that separates concerns and makes it easy to extend. The core components work together to provide a seamless drawing and annotation experience on both desktop and mobile devices.
-
+The Guestbook application is built with a modular, object-oriented architecture that separates concerns and makes it easy to extend. The core components work together to provide a seamless drawing and annotation experience on both desktop and mobile devices, now enhanced with the ability to capture and add Polaroid-style photos directly from the device camera.

@@ -5,6 +5,7 @@ import { ImageTool } from './ImageTool.js';
 import { SelectionTool } from './SelectionTool.js';
 import { StickyNoteTool } from './StickyNoteTool.js';
 import { TextTool } from './TextTool.js';
+import { CameraTool } from './CameraTool.js';
 
 /**
  * ToolManager class
@@ -29,7 +30,8 @@ export class ToolManager {
             eraser: new EraserTool(canvasManager),
             text: new TextTool(canvasManager),
             sticky: new StickyNoteTool(canvasManager),
-            image: new ImageTool(canvasManager)
+            image: new ImageTool(canvasManager),
+            camera: new CameraTool(canvasManager)
         };
         
         // Set default tool
@@ -164,43 +166,46 @@ export class ToolManager {
      * @param {KeyboardEvent} event - The keyboard event
      */
     onKeyDown(event) {
-        // Global keyboard shortcuts for tool switching
-        if (event.ctrlKey || event.metaKey) {
-            switch (event.code) {
-                case 'KeyV': // Ctrl/Cmd + V for selection tool
-                    this.setTool('selection');
-                    event.preventDefault();
-                    break;
-                case 'KeyH': // Ctrl/Cmd + H for hand tool
-                    this.setTool('hand');
-                    event.preventDefault();
-                    break;
-                case 'KeyP': // Ctrl/Cmd + P for drawing tool
-                    this.setTool('drawing');
-                    event.preventDefault();
-                    break;
-                case 'KeyE': // Ctrl/Cmd + E for eraser tool
-                    this.setTool('eraser');
-                    event.preventDefault();
-                    break;
-                case 'KeyT': // Ctrl/Cmd + T for text tool
-                    this.setTool('text');
-                    event.preventDefault();
-                    break;
-                case 'KeyN': // Ctrl/Cmd + N for sticky note tool
-                    this.setTool('sticky');
-                    event.preventDefault();
-                    break;
-                case 'KeyI': // Ctrl/Cmd + I for image tool
-                    this.setTool('image');
-                    event.preventDefault();
-                    break;
-            }
-        }
-        
-        // Pass the event to the current tool
+        // Pass event to current tool
         if (this.currentTool) {
             this.currentTool.onKeyDown(event);
+        }
+        
+        // Handle keyboard shortcuts for tool selection
+        if (event.ctrlKey || event.metaKey) {
+            let toolName = null;
+            
+            switch (event.key.toLowerCase()) {
+                case 'v':
+                    toolName = 'selection';
+                    break;
+                case 'h':
+                    toolName = 'hand';
+                    break;
+                case 'p':
+                    toolName = 'drawing';
+                    break;
+                case 't':
+                    toolName = 'text';
+                    break;
+                case 'n':
+                    toolName = 'sticky';
+                    break;
+                case 'i':
+                    toolName = 'image';
+                    break;
+                case 'e':
+                    toolName = 'eraser';
+                    break;
+                case 'c':
+                    toolName = 'camera';
+                    break;
+            }
+            
+            if (toolName && this.tools[toolName]) {
+                this.setTool(toolName);
+                event.preventDefault();
+            }
         }
     }
     

@@ -24,11 +24,26 @@ export class SelectionManager {
         this.elementStartSize = { width: 0, height: 0 };
         this.elementStartPos = { x: 0, y: 0 };
         
+        // Rotation state
+        this.isRotating = false;
+        this.rotateElement = null;
+        this.rotateStartX = 0;
+        this.rotateStartY = 0;
+        this.elementStartRotation = 0;
+        this.elementCenter = { x: 0, y: 0 };
+        
+        // Debug mode
+        this.debugMode = true; // Enable debug logging
+        
         // Bind event handlers to maintain 'this' context
         this.handleKeyDown = this.handleKeyDown.bind(this);
         
         // Add keyboard event listener for delete key
         document.addEventListener('keydown', this.handleKeyDown);
+        
+        if (this.debugMode) {
+            console.log('SelectionManager: Debug mode enabled');
+        }
     }
     
     /**
@@ -92,8 +107,54 @@ export class SelectionManager {
      * @param {number} y - The y coordinate
      */
     startDrag(x, y) {
-        console.log(`SelectionManager.startDrag - Selected elements: ${this.selectedElements.length}`);
+        if (this.debugMode) {
+            console.log(`SelectionManager.startDrag - Selected elements: ${this.selectedElements.length}`);
+            console.log(`SelectionManager.startDrag - Mouse position: (${x.toFixed(2)}, ${y.toFixed(2)})`);
+            
+            if (this.selectedElements.length === 1) {
+                const element = this.selectedElements[0];
+                const boundingBox = element.getBoundingBox();
+                console.log(`SelectionManager.startDrag - Element bounding box:`, {
+                    x: boundingBox.x.toFixed(2),
+                    y: boundingBox.y.toFixed(2),
+                    width: boundingBox.width.toFixed(2),
+                    height: boundingBox.height.toFixed(2)
+                });
+            }
+        }
+        
         if (this.selectedElements.length === 0) return;
+        
+        // Check if we're clicking on a rotation handle
+        const rotateInfo = this.checkRotationHandle(x, y);
+        if (rotateInfo.isHandle && this.selectedElements.length === 1) {
+            // Start rotating
+            this.isRotating = true;
+            this.rotateElement = this.selectedElements[0];
+            this.rotateStartX = x;
+            this.rotateStartY = y;
+            
+            if (this.debugMode) {
+                console.log(`SelectionManager.startDrag - Starting rotation from corner: ${rotateInfo.corner}`);
+            }
+            
+            // Store the element's starting rotation and center
+            this.elementStartRotation = this.rotateElement.rotation || 0;
+            
+            // Calculate the center of the element
+            const boundingBox = this.rotateElement.getBoundingBox();
+            this.elementCenter = {
+                x: boundingBox.x + boundingBox.width / 2,
+                y: boundingBox.y + boundingBox.height / 2
+            };
+            
+            if (this.debugMode) {
+                console.log(`SelectionManager.startDrag - Element center: (${this.elementCenter.x.toFixed(2)}, ${this.elementCenter.y.toFixed(2)})`);
+                console.log(`SelectionManager.startDrag - Element start rotation: ${this.elementStartRotation.toFixed(4)} radians (${(this.elementStartRotation * 180 / Math.PI).toFixed(2)}°)`);
+            }
+            
+            return;
+        }
         
         // Check if we're clicking on a resize handle
         const resizeInfo = this.checkResizeHandles(x, y);
@@ -139,6 +200,96 @@ export class SelectionManager {
             });
             console.log(`SelectionManager.startDrag - Element ${element.id} start position: (${element.x.toFixed(2)}, ${element.y.toFixed(2)})`);
         });
+    }
+    
+    /**
+     * Check if a point is over a rotation handle
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
+     * @returns {Object} - Object with isHandle and corner properties
+     */
+    checkRotationHandle(x, y) {
+        // Only check if we have exactly one element selected
+        if (this.selectedElements.length !== 1) {
+            return { isHandle: false, corner: null };
+        }
+        
+        const element = this.selectedElements[0];
+        const boundingBox = element.getBoundingBox();
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Define the rotation handle detection area around each corner
+        // We'll check if the cursor is within a certain distance from each corner
+        const handleDistance = isMobile ? 35 : 25; // Larger detection area on mobile
+        
+        // For mobile, we'll check for the specific rotation handle positions
+        if (isMobile) {
+            const rotationIndicatorDistance = 25; // Same as in CanvasManager.drawSelectionIndicators
+            const rotationHandles = {
+                'tl': { 
+                    x: boundingBox.x - rotationIndicatorDistance, 
+                    y: boundingBox.y - rotationIndicatorDistance 
+                },
+                'tr': { 
+                    x: boundingBox.x + boundingBox.width + rotationIndicatorDistance, 
+                    y: boundingBox.y - rotationIndicatorDistance 
+                },
+                'bl': { 
+                    x: boundingBox.x - rotationIndicatorDistance, 
+                    y: boundingBox.y + boundingBox.height + rotationIndicatorDistance 
+                },
+                'br': { 
+                    x: boundingBox.x + boundingBox.width + rotationIndicatorDistance, 
+                    y: boundingBox.y + boundingBox.height + rotationIndicatorDistance 
+                }
+            };
+            
+            // Check if the point is near any of the rotation handles
+            for (const [corner, pos] of Object.entries(rotationHandles)) {
+                const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+                
+                // Use a larger detection radius for mobile
+                const touchRadius = 20;
+                
+                if (distance <= touchRadius) {
+                    if (this.debugMode) {
+                        console.log(`Mobile rotation handle detected at ${corner} corner, distance: ${distance.toFixed(2)}`);
+                    }
+                    return { isHandle: true, corner: corner };
+                }
+            }
+        } else {
+            // Desktop behavior - check corners
+            const corners = {
+                'tl': { x: boundingBox.x, y: boundingBox.y },
+                'tr': { x: boundingBox.x + boundingBox.width, y: boundingBox.y },
+                'bl': { x: boundingBox.x, y: boundingBox.y + boundingBox.height },
+                'br': { x: boundingBox.x + boundingBox.width, y: boundingBox.y + boundingBox.height }
+            };
+            
+            // Check if the point is near any of the corners
+            for (const [corner, pos] of Object.entries(corners)) {
+                const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+                
+                // Check if the point is within the handle distance
+                // and outside the bounding box by at least 5px to avoid conflicts with resize handles
+                const isOutsideBox = (
+                    x < boundingBox.x - 5 || 
+                    x > boundingBox.x + boundingBox.width + 5 || 
+                    y < boundingBox.y - 5 || 
+                    y > boundingBox.y + boundingBox.height + 5
+                );
+                
+                if (distance <= handleDistance && isOutsideBox) {
+                    if (this.debugMode) {
+                        console.log(`Rotation handle detected at ${corner} corner, distance: ${distance.toFixed(2)}`);
+                    }
+                    return { isHandle: true, corner: corner };
+                }
+            }
+        }
+        
+        return { isHandle: false, corner: null };
     }
     
     /**
@@ -192,9 +343,25 @@ export class SelectionManager {
      * @param {number} y - The y coordinate
      */
     drag(x, y) {
+        if (this.debugMode) {
+            console.log(`SelectionManager.drag - Position: (${x.toFixed(2)}, ${y.toFixed(2)})`);
+            console.log(`SelectionManager.drag - States: isDragging=${this.isDragging}, isResizing=${this.isResizing}, isRotating=${this.isRotating}`);
+        }
+        
+        // Handle rotation
+        if (this.isRotating && this.rotateElement) {
+            if (this.debugMode) {
+                console.log(`SelectionManager.drag - Rotating element ${this.rotateElement.id}`);
+            }
+            this.rotate(x, y);
+            return;
+        }
+        
         // Handle resizing
         if (this.isResizing && this.resizeElement) {
-            console.log(`SelectionManager.drag - Resizing element ${this.resizeElement.id}`);
+            if (this.debugMode) {
+                console.log(`SelectionManager.drag - Resizing element ${this.resizeElement.id}`);
+            }
             this.resize(x, y);
             return;
         }
@@ -202,7 +369,9 @@ export class SelectionManager {
         // Handle dragging
         if (!this.isDragging || this.selectedElements.length === 0) {
             // Not dragging or no elements selected
-            console.log(`SelectionManager.drag - Not dragging: isDragging=${this.isDragging}, selectedElements=${this.selectedElements.length}`);
+            if (this.debugMode) {
+                console.log(`SelectionManager.drag - Not dragging: isDragging=${this.isDragging}, selectedElements=${this.selectedElements.length}`);
+            }
             return;
         }
         
@@ -210,8 +379,10 @@ export class SelectionManager {
         const dx = x - this.dragStartX;
         const dy = y - this.dragStartY;
         
-        console.log(`SelectionManager.drag - Moving by (${dx.toFixed(2)}, ${dy.toFixed(2)})`);
-        console.log(`SelectionManager.drag - Current position: (${x.toFixed(2)}, ${y.toFixed(2)}), Start position: (${this.dragStartX.toFixed(2)}, ${this.dragStartY.toFixed(2)})`);
+        if (this.debugMode) {
+            console.log(`SelectionManager.drag - Moving by (${dx.toFixed(2)}, ${dy.toFixed(2)})`);
+            console.log(`SelectionManager.drag - Current position: (${x.toFixed(2)}, ${y.toFixed(2)}), Start position: (${this.dragStartX.toFixed(2)}, ${this.dragStartY.toFixed(2)})`);
+        }
         
         // Update the position of each selected element
         this.selectedElements.forEach(element => {
@@ -323,13 +494,74 @@ export class SelectionManager {
     }
     
     /**
-     * Stop dragging or resizing the selected elements
+     * Rotate the selected element
+     * @param {number} x - The current x coordinate
+     * @param {number} y - The current y coordinate
+     */
+    rotate(x, y) {
+        if (!this.isRotating || !this.rotateElement) {
+            if (this.debugMode) {
+                console.log(`SelectionManager.rotate - Not rotating: isRotating=${this.isRotating}, rotateElement=${this.rotateElement ? this.rotateElement.id : 'null'}`);
+            }
+            return;
+        }
+        
+        if (this.debugMode) {
+            console.log(`SelectionManager.rotate - Mouse position: (${x.toFixed(2)}, ${y.toFixed(2)})`);
+            console.log(`SelectionManager.rotate - Element center: (${this.elementCenter.x.toFixed(2)}, ${this.elementCenter.y.toFixed(2)})`);
+        }
+        
+        // Calculate the angle between the center of the element and the current mouse position
+        const dx = x - this.elementCenter.x;
+        const dy = y - this.elementCenter.y;
+        const currentAngle = Math.atan2(dy, dx);
+        
+        // Calculate the angle between the center of the element and the starting mouse position
+        const startDx = this.rotateStartX - this.elementCenter.x;
+        const startDy = this.rotateStartY - this.elementCenter.y;
+        const startAngle = Math.atan2(startDy, startDx);
+        
+        if (this.debugMode) {
+            console.log(`SelectionManager.rotate - Current vector: (${dx.toFixed(2)}, ${dy.toFixed(2)}), angle: ${(currentAngle * 180 / Math.PI).toFixed(2)}°`);
+            console.log(`SelectionManager.rotate - Start vector: (${startDx.toFixed(2)}, ${startDy.toFixed(2)}), angle: ${(startAngle * 180 / Math.PI).toFixed(2)}°`);
+        }
+        
+        // Calculate the rotation angle (in radians)
+        let rotationAngle = currentAngle - startAngle;
+        
+        // Convert to degrees for easier debugging and more intuitive rotation
+        const rotationDegrees = rotationAngle * (180 / Math.PI);
+        
+        // Update the element's rotation (add to the starting rotation)
+        // The element.rotation is stored in radians
+        const newRotation = this.elementStartRotation + rotationAngle;
+        
+        if (this.debugMode) {
+            console.log(`SelectionManager.rotate - Rotation change: ${rotationDegrees.toFixed(2)}° degrees, New rotation: ${(newRotation * 180 / Math.PI).toFixed(2)}°`);
+        }
+        
+        this.rotateElement.update({
+            rotation: newRotation
+        });
+        
+        // Request a render update
+        this.canvasManager.requestRender();
+    }
+    
+    /**
+     * Stop dragging, resizing, or rotating the selected elements
      */
     stopDrag() {
-        console.log(`SelectionManager.stopDrag - isDragging: ${this.isDragging}, isResizing: ${this.isResizing}`);
+        if (this.debugMode) {
+            console.log(`SelectionManager.stopDrag - isDragging: ${this.isDragging}, isResizing: ${this.isResizing}, isRotating: ${this.isRotating}`);
+            
+            if (this.isRotating && this.rotateElement) {
+                console.log(`SelectionManager.stopDrag - Final rotation: ${(this.rotateElement.rotation * 180 / Math.PI).toFixed(2)}°`);
+            }
+        }
         
         // Request a final render update to ensure the elements are in their final positions
-        if (this.isDragging || this.isResizing) {
+        if (this.isDragging || this.isResizing || this.isRotating) {
             this.canvasManager.requestRender();
         }
         
@@ -339,6 +571,9 @@ export class SelectionManager {
         this.isResizing = false;
         this.resizeElement = null;
         this.resizeHandle = null;
+        
+        this.isRotating = false;
+        this.rotateElement = null;
     }
     
     /**
