@@ -140,6 +140,8 @@ export class SelectionManager {
             
             // Store the element's starting rotation and center
             this.elementStartRotation = this.rotateElement.rotation || 0;
+            this.elementStartX = this.rotateElement.x;
+            this.elementStartY = this.rotateElement.y;
             
             // Calculate the center of the element
             const boundingBox = this.rotateElement.getBoundingBox();
@@ -506,6 +508,22 @@ export class SelectionManager {
             return;
         }
         
+        // Add debugging logs for drawing elements
+        const isDrawing = this.rotateElement.type === 'drawing';
+        if (isDrawing) {
+            console.log(`SelectionManager.rotate - Rotating a drawing element (ID: ${this.rotateElement.id})`);
+            console.log(`SelectionManager.rotate - Element position before rotation: (${this.rotateElement.x.toFixed(2)}, ${this.rotateElement.y.toFixed(2)})`);
+            console.log(`SelectionManager.rotate - Element start position: (${this.elementStartX.toFixed(2)}, ${this.elementStartY.toFixed(2)})`);
+            console.log(`SelectionManager.rotate - Element center: (${this.elementCenter.x.toFixed(2)}, ${this.elementCenter.y.toFixed(2)})`);
+            
+            if (this.rotateElement.points && this.rotateElement.points.length > 0) {
+                const firstPoint = this.rotateElement.points[0];
+                const lastPoint = this.rotateElement.points[this.rotateElement.points.length - 1];
+                console.log(`SelectionManager.rotate - First point: (${firstPoint.x.toFixed(2)}, ${firstPoint.y.toFixed(2)})`);
+                console.log(`SelectionManager.rotate - Last point: (${lastPoint.x.toFixed(2)}, ${lastPoint.y.toFixed(2)})`);
+            }
+        }
+        
         if (this.debugMode) {
             console.log(`SelectionManager.rotate - Mouse position: (${x.toFixed(2)}, ${y.toFixed(2)})`);
             console.log(`SelectionManager.rotate - Element center: (${this.elementCenter.x.toFixed(2)}, ${this.elementCenter.y.toFixed(2)})`);
@@ -540,9 +558,24 @@ export class SelectionManager {
             console.log(`SelectionManager.rotate - Rotation change: ${rotationDegrees.toFixed(2)}° degrees, New rotation: ${(newRotation * 180 / Math.PI).toFixed(2)}°`);
         }
         
+        // Store the element's current position
+        const elementX = this.rotateElement.x;
+        const elementY = this.rotateElement.y;
+        
+        // Update the element's rotation while keeping its original position
         this.rotateElement.update({
-            rotation: newRotation
+            rotation: newRotation,
+            x: this.elementStartX,
+            y: this.elementStartY
         });
+        
+        if (isDrawing) {
+            console.log(`SelectionManager.rotate - Element position after rotation: (${this.rotateElement.x.toFixed(2)}, ${this.rotateElement.y.toFixed(2)})`);
+            
+            // Get the bounding box after rotation
+            const bbox = this.rotateElement.getBoundingBox();
+            console.log(`SelectionManager.rotate - Bounding box after rotation: x=${bbox.x.toFixed(2)}, y=${bbox.y.toFixed(2)}, width=${bbox.width.toFixed(2)}, height=${bbox.height.toFixed(2)}`);
+        }
         
         // Request a render update
         this.canvasManager.requestRender();

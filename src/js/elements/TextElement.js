@@ -139,22 +139,76 @@ export class TextElement extends CanvasElement {
      * @returns {Object} - The bounding box {x, y, width, height}
      */
     getBoundingBox() {
-        // Return cached bounding box if available and not editing
-        if (this._boundingBox && !this._isEditing) return this._boundingBox;
-        
         // Calculate width and height
-        const width = this._textWidth;
-        const height = this._textHeight;
+        const width = this._textWidth || 0;
+        const height = this._textHeight || 0;
         
         // Add padding for selection
         const padding = 4;
         
-        // Cache the bounding box
+        // Calculate the base bounding box (without rotation)
+        const baseX = this.x - (this.align === 'center' ? width / 2 : 0) - padding;
+        const baseY = this.y - padding;
+        const baseWidth = width + padding * 2;
+        const baseHeight = height + padding * 2;
+        
+        // If there's no rotation, return the simple bounding box
+        if (this.rotation === 0 || Math.abs(this.rotation) < 0.001) {
+            this._boundingBox = {
+                x: baseX,
+                y: baseY,
+                width: baseWidth,
+                height: baseHeight
+            };
+            return this._boundingBox;
+        }
+        
+        // For rotated text, calculate the corners of the rotated rectangle
+        const cos = Math.cos(this.rotation);
+        const sin = Math.sin(this.rotation);
+        
+        // Calculate the center of the unrotated bounding box relative to the rotation point (this.x, this.y)
+        const centerOffsetX = baseX + baseWidth / 2 - this.x;
+        const centerOffsetY = baseY + baseHeight / 2 - this.y;
+        
+        // Calculate the four corners of the rotated rectangle
+        const corners = [
+            { // Top-left
+                x: this.x + ((baseX - this.x) * cos - (baseY - this.y) * sin),
+                y: this.y + ((baseX - this.x) * sin + (baseY - this.y) * cos)
+            },
+            { // Top-right
+                x: this.x + ((baseX + baseWidth - this.x) * cos - (baseY - this.y) * sin),
+                y: this.y + ((baseX + baseWidth - this.x) * sin + (baseY - this.y) * cos)
+            },
+            { // Bottom-right
+                x: this.x + ((baseX + baseWidth - this.x) * cos - (baseY + baseHeight - this.y) * sin),
+                y: this.y + ((baseX + baseWidth - this.x) * sin + (baseY + baseHeight - this.y) * cos)
+            },
+            { // Bottom-left
+                x: this.x + ((baseX - this.x) * cos - (baseY + baseHeight - this.y) * sin),
+                y: this.y + ((baseX - this.x) * sin + (baseY + baseHeight - this.y) * cos)
+            }
+        ];
+        
+        // Find the min and max coordinates to create the bounding box
+        let minX = corners[0].x;
+        let minY = corners[0].y;
+        let maxX = corners[0].x;
+        let maxY = corners[0].y;
+        
+        for (let i = 1; i < corners.length; i++) {
+            minX = Math.min(minX, corners[i].x);
+            minY = Math.min(minY, corners[i].y);
+            maxX = Math.max(maxX, corners[i].x);
+            maxY = Math.max(maxY, corners[i].y);
+        }
+        
         this._boundingBox = {
-            x: this.x - (this.align === 'center' ? width / 2 : 0) - padding,
-            y: this.y - padding,
-            width: width + padding * 2,
-            height: height + padding * 2
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY
         };
         
         return this._boundingBox;

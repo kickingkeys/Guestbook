@@ -252,8 +252,14 @@ export class StickyNoteTool extends Tool {
         // Set the sticky note to non-editing mode
         this.editingElement.setEditing(false);
         
-        // Remove the input element
-        document.body.removeChild(this.editingInput);
+        // Remove the input element if it's still in the DOM
+        try {
+            if (this.editingInput.parentNode === document.body) {
+                document.body.removeChild(this.editingInput);
+            }
+        } catch (error) {
+            console.warn('Failed to remove editing input:', error);
+        }
         
         // Clear editing state
         this.editingInput = null;

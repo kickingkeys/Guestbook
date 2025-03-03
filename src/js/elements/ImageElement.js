@@ -136,11 +136,58 @@ export class ImageElement extends CanvasElement {
         const halfWidth = (this.width * this.scaleX) / 2;
         const halfHeight = (this.height * this.scaleY) / 2;
         
+        // If there's no rotation, return the simple bounding box
+        if (this.rotation === 0 || Math.abs(this.rotation) < 0.001) {
+            return {
+                x: this.x - halfWidth,
+                y: this.y - halfHeight,
+                width: this.width * this.scaleX,
+                height: this.height * this.scaleY
+            };
+        }
+        
+        // For rotated images, calculate the corners of the rotated rectangle
+        const cos = Math.cos(this.rotation);
+        const sin = Math.sin(this.rotation);
+        
+        // Calculate the four corners of the rotated rectangle
+        const corners = [
+            { // Top-left
+                x: this.x + (-halfWidth * cos - -halfHeight * sin),
+                y: this.y + (-halfWidth * sin + -halfHeight * cos)
+            },
+            { // Top-right
+                x: this.x + (halfWidth * cos - -halfHeight * sin),
+                y: this.y + (halfWidth * sin + -halfHeight * cos)
+            },
+            { // Bottom-right
+                x: this.x + (halfWidth * cos - halfHeight * sin),
+                y: this.y + (halfWidth * sin + halfHeight * cos)
+            },
+            { // Bottom-left
+                x: this.x + (-halfWidth * cos - halfHeight * sin),
+                y: this.y + (-halfWidth * sin + halfHeight * cos)
+            }
+        ];
+        
+        // Find the min and max coordinates to create the bounding box
+        let minX = corners[0].x;
+        let minY = corners[0].y;
+        let maxX = corners[0].x;
+        let maxY = corners[0].y;
+        
+        for (let i = 1; i < corners.length; i++) {
+            minX = Math.min(minX, corners[i].x);
+            minY = Math.min(minY, corners[i].y);
+            maxX = Math.max(maxX, corners[i].x);
+            maxY = Math.max(maxY, corners[i].y);
+        }
+        
         return {
-            x: this.x - halfWidth,
-            y: this.y - halfHeight,
-            width: this.width * this.scaleX,
-            height: this.height * this.scaleY
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY
         };
     }
     

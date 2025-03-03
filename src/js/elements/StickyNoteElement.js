@@ -170,11 +170,61 @@ export class StickyNoteElement extends CanvasElement {
      * @returns {Object} - The bounding box {x, y, width, height}
      */
     getBoundingBox() {
+        const width = this.width * this.scaleX;
+        const height = this.height * this.scaleY;
+        
+        // If there's no rotation, return the simple bounding box
+        if (this.rotation === 0 || Math.abs(this.rotation) < 0.001) {
+            return {
+                x: this.x,
+                y: this.y,
+                width: width,
+                height: height
+            };
+        }
+        
+        // For rotated sticky notes, calculate the corners of the rotated rectangle
+        const cos = Math.cos(this.rotation);
+        const sin = Math.sin(this.rotation);
+        
+        // Calculate the four corners of the rotated rectangle
+        const corners = [
+            { // Top-left
+                x: this.x + (0 * cos - 0 * sin),
+                y: this.y + (0 * sin + 0 * cos)
+            },
+            { // Top-right
+                x: this.x + (width * cos - 0 * sin),
+                y: this.y + (width * sin + 0 * cos)
+            },
+            { // Bottom-right
+                x: this.x + (width * cos - height * sin),
+                y: this.y + (width * sin + height * cos)
+            },
+            { // Bottom-left
+                x: this.x + (0 * cos - height * sin),
+                y: this.y + (0 * sin + height * cos)
+            }
+        ];
+        
+        // Find the min and max coordinates to create the bounding box
+        let minX = corners[0].x;
+        let minY = corners[0].y;
+        let maxX = corners[0].x;
+        let maxY = corners[0].y;
+        
+        for (let i = 1; i < corners.length; i++) {
+            minX = Math.min(minX, corners[i].x);
+            minY = Math.min(minY, corners[i].y);
+            maxX = Math.max(maxX, corners[i].x);
+            maxY = Math.max(maxY, corners[i].y);
+        }
+        
         return {
-            x: this.x,
-            y: this.y,
-            width: this.width * this.scaleX,
-            height: this.height * this.scaleY
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY
         };
     }
     

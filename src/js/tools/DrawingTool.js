@@ -66,6 +66,9 @@ export class DrawingTool extends Tool {
         // Convert screen coordinates to canvas coordinates
         const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
         
+        console.log(`DrawingTool.onMouseDown - Screen coordinates: (${x.toFixed(2)}, ${y.toFixed(2)})`);
+        console.log(`DrawingTool.onMouseDown - Canvas coordinates: (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
+        
         // Start a new drawing path
         this.isDrawing = true;
         this.currentPath = {
@@ -80,6 +83,9 @@ export class DrawingTool extends Tool {
             color: this.strokeColor,
             width: this.strokeWidth
         });
+        
+        console.log(`DrawingTool.onMouseDown - Created new DrawingElement with ID: ${this.currentElement.id}`);
+        console.log(`DrawingTool.onMouseDown - Element position: (${this.currentElement.x.toFixed(2)}, ${this.currentElement.y.toFixed(2)})`);
         
         // Add the element to the canvas manager immediately
         if (this.canvasManager) {
@@ -102,12 +108,19 @@ export class DrawingTool extends Tool {
         // Convert screen coordinates to canvas coordinates
         const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
         
+        console.log(`DrawingTool.onMouseMove - Canvas coordinates: (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
+        
         // Add point to the current path
         this.currentPath.points.push({ x: canvasPoint.x, y: canvasPoint.y });
         
         // Update the current element
         if (this.currentElement) {
+            console.log(`DrawingTool.onMouseMove - Element position before adding point: (${this.currentElement.x.toFixed(2)}, ${this.currentElement.y.toFixed(2)})`);
+            
             this.currentElement.addPoint({ x: canvasPoint.x, y: canvasPoint.y });
+            
+            console.log(`DrawingTool.onMouseMove - Element position after adding point: (${this.currentElement.x.toFixed(2)}, ${this.currentElement.y.toFixed(2)})`);
+            console.log(`DrawingTool.onMouseMove - Points count: ${this.currentElement.points.length}`);
             
             // Request a render update
             if (this.canvasManager) {
