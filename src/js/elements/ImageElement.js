@@ -24,6 +24,7 @@ export class ImageElement extends CanvasElement {
         this.src = options.src || '';
         this.width = options.width || 200;
         this.height = options.height || 200;
+        this.isStorageUrl = options.isStorageUrl || this._isFirebaseStorageUrl(this.src);
         
         // Original dimensions (for aspect ratio)
         this.originalWidth = this.width;
@@ -74,6 +75,55 @@ export class ImageElement extends CanvasElement {
             console.error('Failed to load image:', this.src);
             this.isLoaded = false;
         };
+    }
+    
+    /**
+     * Check if a URL is a Firebase Storage URL
+     * @param {string} url - The URL to check
+     * @returns {boolean} - True if the URL is a Firebase Storage URL
+     * @private
+     */
+    _isFirebaseStorageUrl(url) {
+        return url && (
+            url.includes('firebasestorage.googleapis.com') || 
+            url.includes('storage.googleapis.com')
+        );
+    }
+    
+    /**
+     * Upload the image to Firebase Storage if it's a data URL
+     * @param {FirebaseManager} firebaseManager - The Firebase manager instance
+     * @returns {Promise<void>} - A promise that resolves when the upload is complete
+     */
+    async uploadToFirebaseIfNeeded(firebaseManager) {
+        // Skip if already a storage URL or if no Firebase manager
+        if (this.isStorageUrl || !firebaseManager || !this.src) {
+            return;
+        }
+        
+        // Skip if not a data URL
+        if (!this.src.startsWith('data:')) {
+            return;
+        }
+        
+        try {
+            console.log('ImageElement: Uploading data URL to Firebase Storage');
+            
+            // Upload the image
+            const storageUrl = await firebaseManager.uploadImageFromDataUrl(this.src, 'images');
+            
+            // Update the source
+            this.src = storageUrl;
+            this.isStorageUrl = true;
+            
+            // Reload the image
+            this.image.src = this.src;
+            
+            console.log('ImageElement: Image uploaded to Firebase Storage:', storageUrl);
+        } catch (error) {
+            console.error('ImageElement: Error uploading image to Firebase Storage:', error);
+            // Keep using the data URL if upload fails
+        }
     }
     
     /**
@@ -201,11 +251,13 @@ export class ImageElement extends CanvasElement {
         // Update image properties
         if (options.src !== undefined) {
             this.src = options.src;
+            this.isStorageUrl = this._isFirebaseStorageUrl(this.src);
             this.image.src = this.src;
         }
         
         if (options.width !== undefined) this.width = options.width;
         if (options.height !== undefined) this.height = options.height;
+        if (options.isStorageUrl !== undefined) this.isStorageUrl = options.isStorageUrl;
     }
     
     /**
@@ -223,6 +275,54 @@ export class ImageElement extends CanvasElement {
             src: this.src,
             width: this.width,
             height: this.height
+        });
+    }
+    
+    /**
+     * Serialize the image element for Firebase
+     * @returns {Object} - Serialized image element data
+     */
+    serialize() {
+        const baseData = super.serialize();
+        
+        return {
+            ...baseData,
+            src: this.src,
+            width: this.width,
+            height: this.height,
+            originalWidth: this.originalWidth,
+            originalHeight: this.originalHeight,
+            opacity: this.opacity,
+            isStorageUrl: this.isStorageUrl
+        };
+    }
+    
+    /**
+     * Deserialize image element data from Firebase
+     * @param {Object} data - The image element data from Firebase
+     * @returns {ImageElement} - Deserialized image element
+     */
+    static deserialize(data) {
+        return new ImageElement({
+            id: data.id,
+            firebaseId: data.firebaseId,
+            x: data.x,
+            y: data.y,
+            rotation: data.rotation,
+            scaleX: data.scaleX,
+            scaleY: data.scaleY,
+            zIndex: data.zIndex,
+            visible: data.visible,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+            createdBy: data.createdBy,
+            updatedBy: data.updatedBy,
+            src: data.src || '',
+            width: data.width || 200,
+            height: data.height || 200,
+            opacity: data.opacity || 1,
+            isStorageUrl: data.isStorageUrl || false,
+            isSynced: true
         });
     }
 } 

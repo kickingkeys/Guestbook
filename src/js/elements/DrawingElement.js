@@ -348,4 +348,48 @@ export class DrawingElement extends CanvasElement {
         // Update timestamp
         this.updatedAt = Date.now();
     }
+    
+    /**
+     * Serialize the drawing element for Firebase
+     * @returns {Object} - Serialized drawing element data
+     */
+    serialize() {
+        const baseData = super.serialize();
+        
+        return {
+            ...baseData,
+            points: this.points,
+            color: this.color,
+            width: this.width,
+            opacity: this.opacity
+        };
+    }
+    
+    /**
+     * Deserialize drawing element data from Firebase
+     * @param {Object} data - The drawing element data from Firebase
+     * @returns {DrawingElement} - Deserialized drawing element
+     */
+    static deserialize(data) {
+        return new DrawingElement({
+            id: data.id,
+            firebaseId: data.firebaseId,
+            x: data.x,
+            y: data.y,
+            rotation: data.rotation,
+            scaleX: data.scaleX,
+            scaleY: data.scaleY,
+            zIndex: data.zIndex,
+            visible: data.visible,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+            createdBy: data.createdBy,
+            updatedBy: data.updatedBy,
+            points: data.points || [],
+            color: data.color || '#000000',
+            width: data.width || 2,
+            opacity: data.opacity || 1,
+            isSynced: true
+        });
+    }
 } 

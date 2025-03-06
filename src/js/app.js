@@ -4,6 +4,14 @@ import { Viewport } from './canvas/Viewport.js';
 import { ToolManager } from './tools/ToolManager.js';
 import { ModeManager } from './utils/ModeManager.js';
 import { SelectionManager } from './utils/SelectionManager.js';
+import { FirebaseManager } from './firebase/FirebaseManager.js';
+import { UserPresence } from './firebase/UserPresence.js';
+import { ElementAttribution } from './components/ElementAttribution.js';
+import { NetworkStatus } from './components/NetworkStatus.js';
+import { LoadingState } from './components/LoadingState.js';
+import { WelcomeOverlay } from './components/WelcomeOverlay.js';
+import { ErrorToast } from './components/ErrorToast.js';
+import { SavingIndicator } from './components/SavingIndicator.js';
 
 // Main application class
 class App {
@@ -25,12 +33,39 @@ class App {
         // Set tool manager reference in canvas manager
         this.canvasManager.setToolManager(this.toolManager);
         
+        // Initialize Firebase manager
+        this.firebaseManager = new FirebaseManager();
+        
+        // Initialize user presence
+        this.userPresence = new UserPresence(this.firebaseManager);
+        
+        // Initialize element attribution
+        this.elementAttribution = new ElementAttribution(this.firebaseManager);
+        
+        // Initialize network status
+        this.networkStatus = new NetworkStatus(this.firebaseManager);
+        
+        // Initialize loading state
+        this.loadingState = new LoadingState();
+        
         // Pan and zoom state tracking
         this.isPanning = false;
         this.isSpacebarDown = false;
         
         // Zoom indicator fade timeout
         this.zoomFadeTimeout = null;
+        
+        // Cursor update throttling
+        this.cursorUpdateTimeout = null;
+        
+        // Element hover tracking
+        this.hoveredElement = null;
+        this.hoverTimeout = null;
+        
+        // Initialize new components
+        this.welcomeOverlay = new WelcomeOverlay();
+        this.errorToast = new ErrorToast();
+        this.savingIndicator = new SavingIndicator();
         
         // Set up event listeners
         this.setupEventListeners();
@@ -39,7 +74,7 @@ class App {
         this.init();
     }
     
-    init() {
+    async init() {
         // Initialize canvas with grid pattern
         this.canvasManager.init();
         
@@ -55,7 +90,17 @@ class App {
         
         // Initialize UI elements
         this.updateZoomIndicator();
-        this.updateShortcutIndicator(this.modeManager.getMode());
+        
+        // Initialize element attribution
+        this.elementAttribution.initialize();
+        
+        // Initialize new components
+        this.welcomeOverlay.initialize();
+        this.errorToast.initialize();
+        this.savingIndicator.initialize();
+        
+        // Initialize Firebase integration
+        await this.initializeFirebase();
         
         // Start the render loop
         this.startRenderLoop();
@@ -111,6 +156,14 @@ class App {
         window.addEventListener('mousemove', this.handleMouseMove.bind(this));
         window.addEventListener('mouseup', this.handleMouseUp.bind(this));
         
+        // Add beforeunload event to clean up resources
+        window.addEventListener('beforeunload', () => {
+            // Clean up user presence
+            if (this.userPresence) {
+                this.userPresence.cleanup();
+            }
+        });
+        
         // Touch events for mobile panning and zooming
         canvas.addEventListener('touchstart', this.handleTouchStart.bind(this));
         canvas.addEventListener('touchmove', this.handleTouchMove.bind(this));
@@ -154,63 +207,7 @@ class App {
             
             // Update toolbar position for mobile
             this.updateToolbarPosition();
-            
-            // Update shortcut indicator text based on device
-            this.updateShortcutIndicator(this.modeManager.getMode());
         });
-        
-        // Set up info button event listener
-        const infoButton = document.querySelector('.info-button');
-        if (infoButton) {
-            infoButton.addEventListener('click', () => {
-                const isMobile = window.matchMedia('(max-width: 768px)').matches;
-                
-                const commonInstructions = 
-                    'Surya\'s Guestbook\n\n' +
-                    'Tools:\n' +
-                    '- Selection: Select, move, and resize elements\n' +
-                    '- Hand: Pan the canvas\n' +
-                    '- Drawing: Create freehand drawings with orange pen\n' +
-                    '- Text: Add and edit text\n' +
-                    '- Sticky Note: Add colorful sticky notes\n' +
-                    '- Image: Upload and place images\n' +
-                    '- Eraser: Precisely erase parts of drawings\n\n';
-                
-                const desktopInstructions = 
-                    'Desktop Controls:\n' +
-                    '- Pan: Spacebar + click/drag or middle mouse button\n' +
-                    '- Zoom: Mouse wheel (scroll up/down)\n' +
-                    '- Reset View: Ctrl+R or Ctrl+0\n' +
-                    '- Select Multiple: Shift+Click on elements\n' +
-                    '- Delete Elements: Select and press Delete/Backspace\n' +
-                    '- Adjust Eraser Size: [ and ] keys\n\n' +
-                    'Keyboard Shortcuts:\n' +
-                    '- Ctrl/Cmd + V: Selection tool\n' +
-                    '- Ctrl/Cmd + H: Hand tool\n' +
-                    '- Ctrl/Cmd + P: Drawing tool\n' +
-                    '- Ctrl/Cmd + E: Eraser tool\n' +
-                    '- Ctrl/Cmd + T: Text tool\n' +
-                    '- Ctrl/Cmd + N: Sticky note tool\n' +
-                    '- Ctrl/Cmd + I: Image tool\n' +
-                    '- Escape: Cancel current action\n';
-                
-                const mobileInstructions = 
-                    'Mobile Controls:\n' +
-                    '- Pan: Two-finger touch and drag\n' +
-                    '- Zoom: Pinch gesture (two fingers)\n' +
-                    '- Select: Tap on an element\n' +
-                    '- Move: Drag a selected element\n' +
-                    '- Text: Tap where you want to add text, then tap to type\n' +
-                    '- Drawing: Touch and drag to draw\n' +
-                    '- Eraser: Touch and drag over drawings to erase\n';
-                
-                // Show appropriate instructions based on device
-                alert(
-                    commonInstructions + 
-                    (isMobile ? mobileInstructions : desktopInstructions)
-                );
-            });
-        }
         
         // Listen for mode changes
         this.modeManager.addEventListener('modeChange', (data) => {
@@ -330,40 +327,94 @@ class App {
     }
     
     /**
-     * Handle mouse move event for panning and tool interactions
+     * Handle mouse move event
      * @param {MouseEvent} e - The mouse event
      */
     handleMouseMove(e) {
-        if (this.isPanning) {
-            // Get mouse position
-            const rect = this.canvasManager.canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+        // Get mouse position
+        const x = e.clientX;
+        const y = e.clientY;
+        
+        // Check if mouse is over an element for attribution
+        if (!this.isPanning && !this.isDrawing) {
+            const element = this.canvasManager.getElementAtPosition(x, y);
             
-            // Continue panning to this position
-            this.viewport.pan(mouseX, mouseY);
-            
-            // Trigger a render
-            this.canvasManager.render();
-        } else {
-            // Pass the event to the current tool
-            this.toolManager.onMouseMove(e.clientX, e.clientY, e);
+            if (element) {
+                // If hovering over a different element, clear previous timeout
+                if (this.hoveredElement !== element) {
+                    if (this.hoverTimeout) {
+                        clearTimeout(this.hoverTimeout);
+                    }
+                    
+                    // Set new hovered element
+                    this.hoveredElement = element;
+                    
+                    // Show attribution after a delay
+                    this.hoverTimeout = setTimeout(() => {
+                        this.elementAttribution.showAttribution(element, x, y);
+                    }, 500);
+                }
+            } else {
+                // If not hovering over any element, clear timeout and hide attribution
+                if (this.hoverTimeout) {
+                    clearTimeout(this.hoverTimeout);
+                    this.hoverTimeout = null;
+                }
+                
+                if (this.hoveredElement) {
+                    // Hide attribution
+                    this.elementAttribution.hideAttribution();
+                    
+                    // Reset hovered element
+                    this.hoveredElement = null;
+                }
+            }
         }
+        
+        // If panning, update viewport
+        if (this.isPanning) {
+            const dx = e.movementX;
+            const dy = e.movementY;
+            
+            this.viewport.pan(dx, dy);
+            this.canvasManager.requestRender();
+        }
+        
+        // If a tool is active, delegate to tool manager
+        if (this.toolManager.getCurrentTool()) {
+            this.toolManager.onMouseMove(x, y, e);
+        }
+        
+        // Update cursor
+        this.updateCursor(this.modeManager.getMode());
     }
     
     /**
-     * Handle mouse up event for panning and tool interactions
+     * Handle mouse up event
      * @param {MouseEvent} e - The mouse event
      */
     handleMouseUp(e) {
+        // End panning
         if (this.isPanning) {
             this.isPanning = false;
-            this.viewport.endPan();
             
             // Update cursor
             this.updateCursor(this.modeManager.getMode());
-        } else {
-            // Pass the event to the current tool
+        }
+        
+        // Hide attribution tooltip
+        if (this.hoveredElement) {
+            this.elementAttribution.hideAttribution();
+            this.hoveredElement = null;
+            
+            if (this.hoverTimeout) {
+                clearTimeout(this.hoverTimeout);
+                this.hoverTimeout = null;
+            }
+        }
+        
+        // If a tool is active, delegate to tool manager
+        if (this.toolManager.getCurrentTool()) {
             this.toolManager.onMouseUp(e.clientX, e.clientY, e);
         }
     }
@@ -410,106 +461,158 @@ class App {
     }
     
     /**
-     * Handle touch move event for mobile panning and zooming
+     * Handle touch move event
      * @param {TouchEvent} e - The touch event
      */
     handleTouchMove(e) {
-        if (this.isSpacebarDown || this.modeManager.getMode() === 'navigation') {
-            e.preventDefault();
+        // Prevent default scrolling behavior
+        e.preventDefault();
+        
+        // Get primary touch
+        const touch = e.touches[0];
+        const x = touch.clientX;
+        const y = touch.clientY;
+        
+        // Update user presence with throttled cursor position
+        if (this.userPresence && !this.isPanning) {
+            this.userPresence.updateCursorPosition(x, y);
+        }
+        
+        // Check if touch is over an element for attribution (long press)
+        if (!this.isPanning && !this.isDrawing && e.touches.length === 1) {
+            const element = this.canvasManager.getElementAtPosition(x, y);
             
-            if (e.touches.length === 1 && this.isPanning) {
-                // Single touch - continue panning
-                const touch = e.touches[0];
-                const rect = this.canvasManager.canvas.getBoundingClientRect();
-                const touchX = touch.clientX - rect.left;
-                const touchY = touch.clientY - rect.top;
+            if (element) {
+                // If hovering over a different element, clear previous timeout
+                if (this.hoveredElement !== element) {
+                    if (this.hoverTimeout) {
+                        clearTimeout(this.hoverTimeout);
+                    }
+                    
+                    // Set new hovered element
+                    this.hoveredElement = element;
+                    
+                    // Show attribution after a longer delay for mobile (800ms)
+                    this.hoverTimeout = setTimeout(() => {
+                        this.elementAttribution.showAttribution(element, x, y);
+                    }, 800);
+                }
+            } else {
+                // If not hovering over any element, clear timeout and hide attribution
+                if (this.hoverTimeout) {
+                    clearTimeout(this.hoverTimeout);
+                    this.hoverTimeout = null;
+                }
                 
-                this.viewport.pan(touchX, touchY);
-                this.canvasManager.render();
-            } else if (e.touches.length === 2) {
-                // Two touches - handle pinch zoom
-                const currentDistance = this.getTouchDistance(e.touches);
-                const currentCenter = this.getTouchCenter(e.touches);
-                
-                // Calculate zoom factor based on pinch
-                const zoomFactor = currentDistance / this.pinchStartDistance;
-                
-                // Apply zoom at pinch center
-                const rect = this.canvasManager.canvas.getBoundingClientRect();
-                const centerX = currentCenter.x - rect.left;
-                const centerY = currentCenter.y - rect.top;
-                
-                this.viewport.zoom(centerX, centerY, zoomFactor);
-                
-                // Update zoom indicator
-                this.updateZoomIndicator();
-                
-                // Update pinch start values
-                this.pinchStartDistance = currentDistance;
-                this.pinchStartCenter = currentCenter;
-                
-                this.canvasManager.render();
+                if (this.hoveredElement) {
+                    // Hide attribution
+                    this.elementAttribution.hideAttribution();
+                    
+                    // Reset hovered element
+                    this.hoveredElement = null;
+                }
             }
-        } else {
-            // Pass the event to the current tool
-            const touch = e.touches[0];
-            const rect = this.canvasManager.canvas.getBoundingClientRect();
-            const touchX = touch.clientX - rect.left;
-            const touchY = touch.clientY - rect.top;
+        }
+        
+        // Handle multi-touch gestures
+        if (e.touches.length >= 2) {
+            // Hide attribution if showing
+            if (this.hoveredElement) {
+                this.elementAttribution.hideAttribution();
+                this.hoveredElement = null;
+                
+                if (this.hoverTimeout) {
+                    clearTimeout(this.hoverTimeout);
+                    this.hoverTimeout = null;
+                }
+            }
             
-            this.toolManager.onTouchMove(touchX, touchY, e);
+            // Get the current touch points
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            
+            // Calculate the current distance between touches
+            const currentDistance = this.getTouchDistance(e.touches);
+            
+            // If we have a previous distance, calculate the scale factor
+            if (this.previousTouchDistance) {
+                const scaleFactor = currentDistance / this.previousTouchDistance;
+                
+                // Only zoom if the scale factor is significant
+                if (Math.abs(scaleFactor - 1) > 0.01) {
+                    // Calculate the center point between the two touches
+                    const centerX = (touch1.clientX + touch2.clientX) / 2;
+                    const centerY = (touch1.clientY + touch2.clientY) / 2;
+                    
+                    // Apply zoom
+                    this.viewport.zoom(centerX, centerY, scaleFactor);
+                    this.canvasManager.requestRender();
+                    
+                    // Update zoom indicator
+                    this.updateZoomIndicator();
+                }
+            }
+            
+            // Store the current distance for the next move event
+            this.previousTouchDistance = currentDistance;
+        } else if (this.isPanning) {
+            // Single touch panning
+            const dx = touch.clientX - this.lastTouchX;
+            const dy = touch.clientY - this.lastTouchY;
+            
+            this.viewport.pan(dx, dy);
+            this.canvasManager.requestRender();
+            
+            this.lastTouchX = touch.clientX;
+            this.lastTouchY = touch.clientY;
+        }
+        
+        // If a tool is active, delegate to tool manager
+        if (this.toolManager.getCurrentTool()) {
+            this.toolManager.onTouchMove(x, y, e);
         }
     }
     
     /**
-     * Handle touch end event for mobile panning and zooming
+     * Handle touch end event
      * @param {TouchEvent} e - The touch event
      */
     handleTouchEnd(e) {
-        if (this.isSpacebarDown || this.modeManager.getMode() === 'navigation') {
-            e.preventDefault();
+        // Prevent default behavior
+        e.preventDefault();
+        
+        // End panning
+        if (this.isPanning) {
+            this.isPanning = false;
+        }
+        
+        // Reset pinch zoom tracking
+        this.previousTouchDistance = null;
+        
+        // Hide attribution tooltip
+        if (this.hoveredElement) {
+            this.elementAttribution.hideAttribution();
+            this.hoveredElement = null;
             
-            if (e.touches.length === 0) {
-                // All touches ended
-                this.isPanning = false;
-                this.viewport.endPan();
-                
-                // Update cursor
-                this.updateCursor(this.modeManager.getMode());
-            } else if (e.touches.length === 1) {
-                // One touch left - start panning from here
-                const touch = e.touches[0];
-                const rect = this.canvasManager.canvas.getBoundingClientRect();
-                const touchX = touch.clientX - rect.left;
-                const touchY = touch.clientY - rect.top;
-                
-                this.isPanning = true;
-                this.viewport.startPan(touchX, touchY);
-                
-                // Update cursor
-                this.updateCursor(this.modeManager.getMode());
+            if (this.hoverTimeout) {
+                clearTimeout(this.hoverTimeout);
+                this.hoverTimeout = null;
             }
-        } else {
-            // Pass the event to the current tool
-            // For touch end, we need to use the last known position if no touches remain
-            let touchX, touchY;
-            
-            if (e.touches.length > 0) {
-                const touch = e.touches[0];
-                const rect = this.canvasManager.canvas.getBoundingClientRect();
-                touchX = touch.clientX - rect.left;
-                touchY = touch.clientY - rect.top;
-            } else if (e.changedTouches.length > 0) {
-                // Use the position of the touch that ended
-                const touch = e.changedTouches[0];
-                const rect = this.canvasManager.canvas.getBoundingClientRect();
-                touchX = touch.clientX - rect.left;
-                touchY = touch.clientY - rect.top;
-            }
-            
-            if (touchX !== undefined && touchY !== undefined) {
-                this.toolManager.onTouchEnd(touchX, touchY, e);
-            }
+        }
+        
+        // Get touch position (if any touches remain)
+        let x = 0;
+        let y = 0;
+        
+        if (e.changedTouches.length > 0) {
+            const touch = e.changedTouches[0];
+            x = touch.clientX;
+            y = touch.clientY;
+        }
+        
+        // If a tool is active, delegate to tool manager
+        if (this.toolManager.getCurrentTool()) {
+            this.toolManager.onTouchEnd(x, y, e);
         }
     }
     
@@ -592,9 +695,6 @@ class App {
         // Remove all cursor-related classes
         this.canvasManager.canvas.classList.remove('can-pan', 'panning', 'drawing', 'creating');
         
-        // Update shortcut indicator visibility
-        this.updateShortcutIndicator(mode);
-        
         if (this.isPanning) {
             // Currently panning
             this.canvasManager.canvas.classList.add('panning');
@@ -624,44 +724,6 @@ class App {
             } else {
                 // Default cursor
                 this.canvasManager.canvas.style.cursor = 'default';
-            }
-        }
-    }
-    
-    /**
-     * Update the shortcut indicator visibility based on the current mode
-     * @param {string} mode - The current mode
-     */
-    updateShortcutIndicator(mode) {
-        const shortcutIndicator = document.querySelector('.shortcut-indicator');
-        if (!shortcutIndicator) return;
-        
-        // Check if we're on mobile
-        const isMobile = window.innerWidth <= 768;
-        const shortcutText = document.querySelector('.shortcut-text');
-        const shortcutKey = document.querySelector('.shortcut-key');
-        
-        if (isMobile) {
-            // Always show on mobile and update text
-            shortcutIndicator.style.display = 'flex';
-            if (shortcutKey) {
-                shortcutKey.textContent = 'zoom';
-            }
-            if (shortcutText) {
-                shortcutText.textContent = 'pinch to';
-            }
-        } else {
-            // On desktop, only show in drawing or creation mode
-            if (mode === 'drawing' || mode === 'creation') {
-                shortcutIndicator.style.display = 'flex';
-                if (shortcutText) {
-                    shortcutText.textContent = '+ drag to pan';
-                }
-                if (shortcutKey) {
-                    shortcutKey.textContent = 'Space';
-                }
-            } else {
-                shortcutIndicator.style.display = 'none';
             }
         }
     }
@@ -719,6 +781,9 @@ class App {
             } else {
                 console.log('Skipping render during drag/resize operation');
             }
+            
+            // Render user cursors
+            this.renderUserCursors(this.canvasManager.ctx);
             
             // Request next frame
             requestAnimationFrame(render);
@@ -853,14 +918,341 @@ class App {
             }
         }
     }
+    
+    /**
+     * Render user cursors
+     * @param {CanvasRenderingContext2D} ctx - The canvas context
+     */
+    renderUserCursors(ctx) {
+        if (!this.userPresence || !ctx) return;
+        
+        const onlineUsers = this.userPresence.getOnlineUsers();
+        const currentUser = this.firebaseManager.getCurrentUser();
+        
+        onlineUsers.forEach((user) => {
+            // Don't render current user's cursor
+            if (currentUser && user.uid === currentUser.uid) return;
+            
+            // Get cursor position
+            const { x, y } = user.cursorPosition || { x: 0, y: 0 };
+            
+            // Apply viewport transformation
+            const screenX = (x - this.viewport.x) * this.viewport.scale;
+            const screenY = (y - this.viewport.y) * this.viewport.scale;
+            
+            // Draw cursor
+            ctx.save();
+            ctx.fillStyle = user.color;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 1;
+            
+            // Draw cursor triangle
+            ctx.beginPath();
+            ctx.moveTo(screenX, screenY);
+            ctx.lineTo(screenX + 15, screenY + 5);
+            ctx.lineTo(screenX + 5, screenY + 15);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // Draw user name
+            ctx.font = '12px Arial';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            ctx.strokeText(user.name, screenX + 15, screenY + 20);
+            ctx.fillText(user.name, screenX + 15, screenY + 20);
+            
+            ctx.restore();
+        });
+    }
+    
+    /**
+     * Initialize Firebase integration
+     * @returns {Promise<void>}
+     */
+    async initializeFirebase() {
+        // Show loading state
+        this.loadingState.show(100);
+        this.loadingState.updateMessage('Initializing Firebase...');
+        
+        try {
+            // Initialize Firebase
+            await this.firebaseManager.initialize();
+            this.loadingState.updateProgress(20);
+            this.loadingState.updateMessage('Connecting to database...');
+            
+            // Initialize network status and add listener
+            this.networkStatus.initialize();
+            this.networkStatus.addListener(this.handleNetworkStatusChange.bind(this));
+            this.loadingState.updateProgress(30);
+            
+            // Initialize user presence
+            try {
+                await this.userPresence.initialize();
+                this.loadingState.updateProgress(40);
+            } catch (presenceError) {
+                console.warn('User presence initialization failed:', presenceError);
+                this.loadingState.updateProgress(40);
+                // Continue anyway - presence is not critical
+            }
+            
+            this.loadingState.updateMessage('Loading canvas elements...');
+            
+            // Setup element loading listener
+            this.setupElementLoadingListener();
+            
+            // Start syncing elements with Firebase
+            try {
+                this.canvasManager.startSyncingElements(true);
+                this.loadingState.updateProgress(60);
+            } catch (syncError) {
+                console.warn('Element syncing failed:', syncError);
+                this.loadingState.updateProgress(60);
+                // Continue anyway - we can still use the app without syncing
+            }
+            
+            // Setup online users UI
+            this.setupOnlineUsersUI();
+            this.loadingState.updateProgress(80);
+            
+            // Setup owner highlighting
+            this.setupOwnerHighlighting();
+            this.loadingState.updateProgress(90);
+            
+            // Complete loading
+            this.loadingState.updateProgress(100);
+            setTimeout(() => {
+                this.loadingState.hide();
+                
+                // Show welcome overlay after loading
+                setTimeout(() => {
+                    this.welcomeOverlay.initialize();
+                }, 500);
+            }, 500);
+            
+        } catch (error) {
+            console.error('Error initializing Firebase:', error);
+            this.loadingState.updateMessage('Error connecting to Firebase. Please try again.');
+            this.errorToast.show('Failed to connect to the guestbook. Please refresh the page.');
+            
+            // Hide loading state after a delay
+            setTimeout(() => {
+                this.loadingState.hide();
+            }, 3000);
+        }
+    }
+    
+    /**
+     * Set up element loading listener
+     */
+    setupElementLoadingListener() {
+        // Create a listener for element changes
+        const elementLoadingListener = (elements, changes) => {
+            // Update loading progress based on elements loaded
+            if (changes.added.length > 0) {
+                this.loadingState.updateProgress(50 + Math.min(changes.added.length, 50));
+                this.loadingState.updateMessage(`Loaded ${changes.added.length} elements`);
+            }
+            
+            // If we have elements and no more are being added, complete loading
+            if (elements.length > 0 && changes.added.length === 0) {
+                this.loadingState.updateProgress(100);
+                this.loadingState.updateMessage('Loading complete');
+                
+                // Remove the listener after initial load
+                this.canvasManager.removeElementChangeListener(elementLoadingListener);
+            }
+        };
+        
+        // Add the listener
+        this.canvasManager.addElementChangeListener(elementLoadingListener);
+    }
+    
+    /**
+     * Handle network status change
+     * @param {Object} status - Network status object
+     */
+    handleNetworkStatusChange(status) {
+        // Update body class for offline styling
+        if (status.online === false) {
+            document.body.classList.add('offline-mode');
+        } else {
+            document.body.classList.remove('offline-mode');
+        }
+        
+        // Show error toast for connection issues
+        if (status.online === false) {
+            this.errorToast.show('You are offline. Changes will be saved when you reconnect.', 7000);
+        } else if (status.firestoreConnected === false && status.online === true) {
+            this.errorToast.show('Connection to the server is unstable. Trying to reconnect...', 5000);
+        } else if (status.reconnected) {
+            this.errorToast.show('Connected! Your changes have been saved.', 3000);
+        }
+    }
+    
+    /**
+     * Set up online users UI
+     */
+    setupOnlineUsersUI() {
+        // Remove any existing online status pill (if it exists from previous versions)
+        const existingPill = document.querySelector('.online-status-pill');
+        if (existingPill) {
+            existingPill.remove();
+        }
+        
+        // Create online users toggle button if it doesn't exist
+        if (!document.querySelector('.online-users-toggle')) {
+            const toggleButton = document.createElement('div');
+            toggleButton.className = 'online-users-toggle';
+            toggleButton.innerHTML = `
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" fill="#333"/>
+                </svg>
+            `;
+            document.querySelector('.canvas-container').appendChild(toggleButton);
+            
+            // Add click event listener to toggle button
+            toggleButton.addEventListener('click', () => {
+                const panel = document.querySelector('.online-users-panel');
+                if (panel) {
+                    panel.classList.toggle('visible');
+                    toggleButton.classList.toggle('active');
+                }
+            });
+        }
+        
+        // Create online users panel if it doesn't exist
+        if (!document.querySelector('.online-users-panel')) {
+            const panel = document.createElement('div');
+            panel.className = 'online-users-panel';
+            panel.innerHTML = `
+                <div class="panel-header">
+                    <h3>Online Users</h3>
+                    <div class="panel-close">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="#333"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="users-list"></div>
+                <div class="user-settings">
+                    <input type="text" class="username-input" placeholder="Your name" value="${this.userPresence.getUserName()}">
+                    <button class="update-name-button">Update</button>
+                </div>
+            `;
+            
+            document.querySelector('.canvas-container').appendChild(panel);
+            
+            // Add event listener for close button
+            const closeButton = panel.querySelector('.panel-close');
+            closeButton.addEventListener('click', () => {
+                panel.classList.remove('visible');
+                document.querySelector('.online-users-toggle').classList.remove('active');
+            });
+            
+            // Add event listener for name update
+            const updateButton = panel.querySelector('.update-name-button');
+            const nameInput = panel.querySelector('.username-input');
+            
+            updateButton.addEventListener('click', () => {
+                const newName = nameInput.value.trim();
+                if (newName) {
+                    this.userPresence.updateUserName(newName);
+                }
+            });
+        }
+        
+        // Add listener for online users updates
+        this.userPresence.addOnlineUsersListener(this.updateOnlineUsersUI.bind(this));
+    }
+    
+    /**
+     * Update online users UI
+     * @param {Array} users - Array of online users
+     */
+    updateOnlineUsersUI(users) {
+        const usersList = document.querySelector('.users-list');
+        if (!usersList) return;
+        
+        // Clear existing users
+        usersList.innerHTML = '';
+        
+        // Add users to list
+        users.forEach((user) => {
+            const userElement = document.createElement('div');
+            userElement.className = 'user-item';
+            userElement.innerHTML = `
+                <div class="user-color" style="background-color: ${user.color}"></div>
+                <div class="user-name">${user.name}</div>
+            `;
+            
+            usersList.appendChild(userElement);
+        });
+    }
+    
+    /**
+     * Setup owner highlighting for elements
+     */
+    setupOwnerHighlighting() {
+        // Get current user ID
+        const currentUserId = this.firebaseManager.getCurrentUser()?.uid;
+        if (!currentUserId) return;
+        
+        // Add element change listener to highlight elements
+        this.canvasManager.addElementChangeListener((elements, changes) => {
+            // Process all elements to find ones created by the current user
+            elements.forEach(element => {
+                const isOwner = element.createdBy === currentUserId;
+                element.setOwnerHighlight(isOwner);
+            });
+            
+            // Request render to show highlighting
+            this.canvasManager.requestRender();
+        });
+    }
+    
+    async saveElementToFirebase(element) {
+        try {
+            this.savingIndicator.showSaving();
+            await this.canvasManager.saveElementToFirebase(element);
+            this.savingIndicator.showSaved();
+        } catch (error) {
+            console.error('Error saving element:', error);
+            this.errorToast.show('Failed to save your changes. Please try again.');
+            this.savingIndicator.showError();
+        }
+    }
+    
+    async updateElementInFirebase(element) {
+        try {
+            this.savingIndicator.showSaving();
+            await this.canvasManager.updateElementInFirebase(element);
+            this.savingIndicator.showSaved();
+        } catch (error) {
+            console.error('Error updating element:', error);
+            this.errorToast.show('Failed to update your changes. Please try again.');
+            this.savingIndicator.showError();
+        }
+    }
+    
+    async deleteElementFromFirebase(element) {
+        try {
+            this.savingIndicator.showSaving('Deleting...');
+            await this.canvasManager.deleteElementFromFirebase(element);
+            this.savingIndicator.showSaved('Deleted!');
+        } catch (error) {
+            console.error('Error deleting element:', error);
+            this.errorToast.show('Failed to delete the element. Please try again.');
+            this.savingIndicator.showError('Error deleting');
+        }
+    }
 }
 
-// Initialize the application when the DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    const app = new App();
-    
-    // Make app accessible for debugging
-    window.app = app;
-    
-    console.log('Application loaded and ready.');
+// Create and initialize the application
+const app = new App();
+
+// Initialize Firebase after the app is loaded
+window.addEventListener('load', () => {
+    app.initializeFirebase();
 }); 

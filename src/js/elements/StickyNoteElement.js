@@ -328,4 +328,56 @@ export class StickyNoteElement extends CanvasElement {
     isDragging() {
         return this._isDragging;
     }
+    
+    /**
+     * Serialize the sticky note element for Firebase
+     * @returns {Object} - Serialized sticky note element data
+     */
+    serialize() {
+        const baseData = super.serialize();
+        
+        return {
+            ...baseData,
+            width: this.width,
+            height: this.height,
+            color: this.color,
+            text: this.text,
+            fontSize: this.fontSize,
+            fontFamily: this.fontFamily,
+            textColor: this.textColor,
+            opacity: this.opacity
+        };
+    }
+    
+    /**
+     * Deserialize sticky note element data from Firebase
+     * @param {Object} data - The sticky note element data from Firebase
+     * @returns {StickyNoteElement} - Deserialized sticky note element
+     */
+    static deserialize(data) {
+        return new StickyNoteElement({
+            id: data.id,
+            firebaseId: data.firebaseId,
+            x: data.x,
+            y: data.y,
+            rotation: data.rotation,
+            scaleX: data.scaleX,
+            scaleY: data.scaleY,
+            zIndex: data.zIndex,
+            visible: data.visible,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+            createdBy: data.createdBy,
+            updatedBy: data.updatedBy,
+            width: data.width || 200,
+            height: data.height || 200,
+            color: data.color || '#FFFF88',
+            text: data.text || '',
+            fontSize: data.fontSize || 14,
+            fontFamily: data.fontFamily || 'Arial, sans-serif',
+            textColor: data.textColor || '#000000',
+            opacity: data.opacity || 1,
+            isSynced: true
+        });
+    }
 } 

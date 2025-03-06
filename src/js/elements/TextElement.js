@@ -304,4 +304,58 @@ export class TextElement extends CanvasElement {
         // Restore context state
         ctx.font = originalFont;
     }
+    
+    /**
+     * Serialize the text element for Firebase
+     * @returns {Object} - Serialized text element data
+     */
+    serialize() {
+        const baseData = super.serialize();
+        
+        return {
+            ...baseData,
+            text: this.text,
+            fontSize: this.fontSize,
+            fontFamily: this.fontFamily,
+            color: this.color,
+            align: this.align,
+            bold: this.bold,
+            italic: this.italic,
+            underline: this.underline,
+            opacity: this.opacity
+        };
+    }
+    
+    /**
+     * Deserialize text element data from Firebase
+     * @param {Object} data - The text element data from Firebase
+     * @returns {TextElement} - Deserialized text element
+     */
+    static deserialize(data) {
+        return new TextElement({
+            id: data.id,
+            firebaseId: data.firebaseId,
+            x: data.x,
+            y: data.y,
+            rotation: data.rotation,
+            scaleX: data.scaleX,
+            scaleY: data.scaleY,
+            zIndex: data.zIndex,
+            visible: data.visible,
+            createdAt: data.createdAt,
+            updatedAt: data.updatedAt,
+            createdBy: data.createdBy,
+            updatedBy: data.updatedBy,
+            text: data.text || '',
+            fontSize: data.fontSize || 16,
+            fontFamily: data.fontFamily || 'Arial, sans-serif',
+            color: data.color || '#000000',
+            align: data.align || 'left',
+            bold: data.bold || false,
+            italic: data.italic || false,
+            underline: data.underline || false,
+            opacity: data.opacity || 1,
+            isSynced: true
+        });
+    }
 } 

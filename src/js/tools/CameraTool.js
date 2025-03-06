@@ -31,6 +31,7 @@ export class CameraTool extends Tool {
         this.errorMessage = null;
         this.fallbackMessage = null;
         this.loadingIndicator = null;
+        this.fileUploadFallback = null;
         
         // State tracking
         this.isCapturing = false;
@@ -64,6 +65,12 @@ export class CameraTool extends Tool {
         if (!this.cameraInterface) {
             this.createCameraInterface();
         }
+        
+        // Show camera interface at the center of the screen
+        const canvasRect = this.canvasManager.canvas.getBoundingClientRect();
+        const x = canvasRect.left + canvasRect.width / 2;
+        const y = canvasRect.top + canvasRect.height / 2;
+        this.showCameraInterface(x, y);
     }
     
     /**
@@ -154,8 +161,9 @@ export class CameraTool extends Tool {
         this.fallbackMessage.innerHTML = `
             <div class="fallback-icon">📷</div>
             <h3>Camera Not Supported</h3>
-            <p>Your browser doesn't support camera access.</p>
+            <p>Your browser doesn't support camera access or permission was denied.</p>
             <p>Try using a modern browser like Chrome, Firefox, Safari, or Edge.</p>
+            <p>Make sure you're using HTTPS and have granted camera permissions.</p>
             <button class="fallback-close-button">Close</button>
         `;
         
@@ -163,7 +171,6 @@ export class CameraTool extends Tool {
         const fallbackCloseButton = this.fallbackMessage.querySelector('.fallback-close-button');
         if (fallbackCloseButton) {
             fallbackCloseButton.addEventListener('click', () => this.hideCameraInterface());
-            // Add touch event for better mobile response
             fallbackCloseButton.addEventListener('touchend', (e) => {
                 e.preventDefault();
                 this.hideCameraInterface();
@@ -197,11 +204,15 @@ export class CameraTool extends Tool {
             if (!this.isCameraSupported) {
                 console.log('CameraTool: Camera not supported, showing fallback message');
                 this.showFallbackMessage();
+                
+                // Add file upload option as fallback
+                this.showFileUploadFallback();
                 return;
             }
             
             // Hide fallback message if it was previously shown
             this.hideFallbackMessage();
+            this.hideFileUploadFallback();
             
             // Show loading indicator
             this.showLoadingIndicator();
@@ -219,6 +230,9 @@ export class CameraTool extends Tool {
             if (!success) {
                 console.error('CameraTool: Failed to initialize camera');
                 this.showError('Failed to initialize camera. Please check permissions.');
+                
+                // Show file upload fallback when camera initialization fails
+                this.showFileUploadFallback();
             } else {
                 console.log('CameraTool: Camera initialized successfully');
                 
@@ -281,6 +295,7 @@ export class CameraTool extends Tool {
             this.cameraManager.stop();
             this.hideError();
             this.hideFallbackMessage();
+            this.hideFileUploadFallback();
             this.hideLoadingIndicator();
         }
     }
@@ -289,17 +304,33 @@ export class CameraTool extends Tool {
      * Show the fallback message for unsupported browsers
      */
     showFallbackMessage() {
-        console.log('CameraTool: Showing fallback message');
-        
         if (this.fallbackMessage) {
+            this.fallbackMessage.style.display = 'flex';
+            
+            // Update fallback message content
+            this.fallbackMessage.innerHTML = `
+                <div class="fallback-icon">📷</div>
+                <h3>Camera Not Supported</h3>
+                <p>Your browser doesn't support camera access or permission was denied.</p>
+                <p>Try using a modern browser like Chrome, Firefox, Safari, or Edge.</p>
+                <p>Make sure you're using HTTPS and have granted camera permissions.</p>
+                <button class="fallback-close-button">Close</button>
+            `;
+            
+            // Add event listener to the fallback close button
+            const fallbackCloseButton = this.fallbackMessage.querySelector('.fallback-close-button');
+            if (fallbackCloseButton) {
+                fallbackCloseButton.addEventListener('click', () => this.hideCameraInterface());
+                fallbackCloseButton.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    this.hideCameraInterface();
+                });
+            }
+            
             // Hide other UI elements
             if (this.videoElement) this.videoElement.style.display = 'none';
             if (this.captureButton) this.captureButton.style.display = 'none';
             if (this.switchButton) this.switchButton.style.display = 'none';
-            if (this.loadingIndicator) this.loadingIndicator.style.display = 'none';
-            
-            // Show fallback message
-            this.fallbackMessage.style.display = 'flex';
         }
     }
     
@@ -312,11 +343,99 @@ export class CameraTool extends Tool {
         if (this.fallbackMessage) {
             this.fallbackMessage.style.display = 'none';
             
-            // Show other UI elements
-            if (this.videoElement) this.videoElement.style.display = 'block';
-            if (this.captureButton) this.captureButton.style.display = 'flex';
-            if (this.switchButton) this.switchButton.style.display = 'flex';
+            // Show other UI elements if camera is supported
+            if (this.isCameraSupported) {
+                if (this.videoElement) this.videoElement.style.display = 'block';
+                if (this.captureButton) this.captureButton.style.display = 'flex';
+                if (this.switchButton) this.switchButton.style.display = 'flex';
+            }
         }
+    }
+    
+    /**
+     * Show file upload fallback when camera is not available
+     */
+    showFileUploadFallback() {
+        // Create file upload fallback if it doesn't exist
+        if (!this.fileUploadFallback) {
+            this.fileUploadFallback = document.createElement('div');
+            this.fileUploadFallback.className = 'camera-file-upload-fallback';
+            this.fileUploadFallback.innerHTML = `
+                <p>You can upload an image instead:</p>
+                <input type="file" accept="image/*" class="file-upload-input">
+                <button class="file-upload-button">Upload Image</button>
+            `;
+            
+            // Add to camera interface
+            this.cameraInterface.appendChild(this.fileUploadFallback);
+            
+            // Add event listeners
+            const fileInput = this.fileUploadFallback.querySelector('.file-upload-input');
+            const uploadButton = this.fileUploadFallback.querySelector('.file-upload-button');
+            
+            uploadButton.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files && e.target.files[0]) {
+                    const file = e.target.files[0];
+                    const reader = new FileReader();
+                    
+                    reader.onload = (event) => {
+                        this.processUploadedImage(event.target.result);
+                    };
+                    
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // Show the file upload fallback
+        this.fileUploadFallback.style.display = 'flex';
+    }
+    
+    /**
+     * Hide file upload fallback
+     */
+    hideFileUploadFallback() {
+        if (this.fileUploadFallback) {
+            this.fileUploadFallback.style.display = 'none';
+        }
+    }
+    
+    /**
+     * Process an uploaded image
+     * @param {string} dataUrl - The data URL of the uploaded image
+     */
+    processUploadedImage(dataUrl) {
+        console.log('CameraTool: Processing uploaded image');
+        
+        // Create an image element to get dimensions
+        const img = new Image();
+        img.onload = () => {
+            // Create a canvas to process the image
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas dimensions
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            // Draw the image
+            ctx.drawImage(img, 0, 0);
+            
+            // Get the processed data URL
+            const processedDataUrl = canvas.toDataURL('image/jpeg');
+            
+            // Add the image to the canvas
+            this.addImageToCanvas(processedDataUrl);
+            
+            // Hide the camera interface
+            this.hideCameraInterface();
+        };
+        
+        img.src = dataUrl;
     }
     
     /**
@@ -384,40 +503,56 @@ export class CameraTool extends Tool {
                 }, 300);
             }
             
-            // Capture frame from video
-            console.log('CameraTool: Capturing frame from video');
-            const imageDataUrl = this.cameraManager.captureFrame();
+            // Capture frame from video - pass false to disable orientation correction
+            console.log('CameraTool: Capturing frame from video without orientation correction');
+            const imageDataUrl = this.cameraManager.captureFrame(false);
             if (!imageDataUrl) {
                 console.error('CameraTool: Failed to capture frame');
                 this.showError('Failed to capture photo');
                 return;
             }
             
-            // Apply Polaroid effect - no need to specify bottomBorderWidthRatio as it's handled in PolaroidFormatter
-            console.log('CameraTool: Applying Polaroid effect');
-            const timestamp = PolaroidFormatter.getTimestampCaption();
-            const formattedImageUrl = await PolaroidFormatter.format(imageDataUrl, {
-                caption: timestamp
-                // PolaroidFormatter now automatically adjusts for mobile
-            });
+            // Show loading indicator
+            this.showLoadingIndicator();
             
-            // Create a new image element
-            console.log('CameraTool: Adding image to canvas');
-            this.addImageToCanvas(formattedImageUrl);
+            try {
+                // Get Firebase manager from canvas manager
+                const firebaseManager = this.canvasManager.firebaseManager;
+                
+                // Apply Polaroid effect and upload to Firebase in one step
+                console.log('CameraTool: Applying Polaroid effect and uploading to Firebase');
+                const timestamp = PolaroidFormatter.getTimestampCaption();
+                const imageUrl = await PolaroidFormatter.format(imageDataUrl, {
+                    caption: timestamp,
+                    firebaseManager: firebaseManager,
+                    uploadToFirebase: !!firebaseManager
+                });
+                
+                // Add the image to the canvas
+                console.log('CameraTool: Adding image to canvas');
+                this.addImageToCanvas(imageUrl, !!firebaseManager);
+            } catch (error) {
+                console.error('CameraTool: Error processing photo:', error);
+                this.showError('Failed to process photo');
+            } finally {
+                this.hideLoadingIndicator();
+            }
             
             // Hide camera interface after capture
             this.hideCameraInterface();
         } catch (error) {
             console.error('CameraTool: Error capturing photo:', error);
+            this.hideLoadingIndicator();
             this.showError('Failed to process photo');
         }
     }
     
     /**
      * Add the captured image to the canvas
-     * @param {string} imageUrl - The image data URL
+     * @param {string} imageUrl - The image data URL or Firebase Storage URL
+     * @param {boolean} isStorageUrl - Whether the URL is a Firebase Storage URL
      */
-    addImageToCanvas(imageUrl) {
+    addImageToCanvas(imageUrl, isStorageUrl = false) {
         console.log('CameraTool: Processing captured image for canvas');
         
         // Create a temporary image to get dimensions
@@ -450,10 +585,8 @@ export class CameraTool extends Tool {
                 resized: { width, height }
             });
             
-            // Apply a slight random rotation for a more natural look
-            // Use a smaller rotation angle on mobile for better fit
-            const maxRotationAngle = this.isMobile ? 2 : 3;
-            const rotation = PolaroidFormatter.getRandomRotation(maxRotationAngle);
+            // Remove random rotation - set to 0 instead of using PolaroidFormatter.getRandomRotation
+            const rotation = 0;
             console.log('CameraTool: Applied rotation:', rotation);
             
             // Create the image element
@@ -463,7 +596,8 @@ export class CameraTool extends Tool {
                 y: this.capturePosition.y - (height / 2),
                 width: width,
                 height: height,
-                rotation: rotation
+                rotation: rotation,
+                isStorageUrl: isStorageUrl
             });
             
             // Add to canvas

@@ -1,19 +1,18 @@
 # Interactive Canvas Implementation Specification
 
 ## Project Overview
-An interactive canvas web application with a dotted grid background where users can create, manipulate, and share content in real-time. The application allows adding sticky notes, drawing with different tools, capturing and adding Polaroid-style photos, and arranging images.
+An interactive canvas web application with a dotted grid background where users can create, manipulate, and share content in real-time. The application allows adding sticky notes, drawing with different tools, capturing and adding Polaroid-style photos, and arranging images. The application will evolve from a single-user experience to a collaborative guestbook that persists and synchronizes content across all visitors.
 
 ## Color Scheme
 - **Background Color**: #FAF8F4 (light beige)
 - **Primary Accent Color**: #ED682B (orange)
 - **Text on Sticky Notes**: White (#FFFFFF)
 - **Polaroid Frame**: White (#FFFFFF) with subtle shadow
+- **User Cursor Colors**: Various colors to distinguish different users (for collaborative phase)
 
-## Phase-by-Phase Implementation Approach
+## Completed Phases (Single-User Version)
 
-This implementation plan is designed to create a working frontend version that can be showcased in class and tested by users. Each phase builds upon the previous one, with a focus on having functional, testable features at the end of each phase.
-
-### Phase 1: Canvas Setup & Grid Pattern (1-2 days)
+### Phase 1: Canvas Setup & Grid Pattern
 **Goal**: Create the basic structure and render the canvas with a dotted grid pattern.
 
 **Implementation Steps**:
@@ -26,7 +25,7 @@ This implementation plan is designed to create a working frontend version that c
 
 **Deliverable**: A responsive canvas with a dotted grid background that properly resizes with the window.
 
-### Phase 2: Navigation System (2-3 days)
+### Phase 2: Navigation System
 **Goal**: Implement pan and zoom functionality for canvas navigation.
 
 **Implementation Steps**:
@@ -38,7 +37,7 @@ This implementation plan is designed to create a working frontend version that c
 
 **Deliverable**: A navigable canvas where users can pan and zoom to explore the space.
 
-### Phase 3: Toolbar & Tool Selection (1-2 days)
+### Phase 3: Toolbar & Tool Selection
 **Goal**: Create a functional toolbar for selecting different tools.
 
 **Implementation Steps**:
@@ -50,7 +49,7 @@ This implementation plan is designed to create a working frontend version that c
 
 **Deliverable**: A responsive toolbar that allows users to select different tools with visual feedback.
 
-### Phase 4: Drawing Tool Implementation (2-3 days)
+### Phase 4: Drawing Tool Implementation
 **Goal**: Enable freehand drawing on the canvas.
 
 **Implementation Steps**:
@@ -62,7 +61,7 @@ This implementation plan is designed to create a working frontend version that c
 
 **Deliverable**: A functional drawing tool that allows users to create freehand drawings on the canvas.
 
-### Phase 5: Sticky Note Implementation (2-3 days)
+### Phase 5: Sticky Note Implementation
 **Goal**: Allow creating and editing sticky notes on the canvas.
 
 **Implementation Steps**:
@@ -74,7 +73,7 @@ This implementation plan is designed to create a working frontend version that c
 
 **Deliverable**: Functional sticky notes that users can create, edit, and position on the canvas.
 
-### Phase 6: Selection & Transformation (3-4 days)
+### Phase 6: Selection & Transformation
 **Goal**: Allow selecting and manipulating canvas elements.
 
 **Implementation Steps**:
@@ -87,7 +86,7 @@ This implementation plan is designed to create a working frontend version that c
 
 **Deliverable**: A selection tool that allows users to select, move, and delete canvas elements.
 
-### Phase 7: Image Upload & Handling (2-3 days)
+### Phase 7: Image Upload & Handling
 **Goal**: Allow users to upload and manipulate images on the canvas.
 
 **Implementation Steps**:
@@ -98,20 +97,7 @@ This implementation plan is designed to create a working frontend version that c
 
 **Deliverable**: Functional image upload and manipulation capabilities.
 
-### Phase 8: Mode Management & UI Polish (2-3 days)
-**Goal**: Implement mode switching and polish the user interface.
-
-**Implementation Steps**:
-1. Create a mode manager class
-2. Implement toggle between drawing and navigation modes
-3. Add visual indicators for current mode
-4. Implement keyboard shortcuts
-5. Polish UI elements and interactions
-6. Test overall user experience
-
-**Deliverable**: A polished user interface with intuitive mode switching and smooth interactions.
-
-### Phase 9: Camera Capture & Polaroid Effect (3-4 days)
+### Phase 8: Camera Capture & Polaroid Effect
 **Goal**: Add the ability to capture photos from the device camera and add them to the canvas with a Polaroid-style effect.
 
 **Implementation Steps**:
@@ -127,225 +113,278 @@ This implementation plan is designed to create a working frontend version that c
 
 **Deliverable**: A functional camera tool that allows users to capture photos, automatically applies a Polaroid-style effect, and adds them to the canvas.
 
-### Phase 10: Performance Optimization (1-2 days)
-**Goal**: Optimize performance for smooth operation.
+## New Collaborative Features Implementation Plan
+
+### Phase 9: Firebase Setup & Integration
+**Goal**: Set up Firebase backend and integrate it with the application.
 
 **Implementation Steps**:
-1. Implement requestAnimationFrame for smooth rendering
-2. Add viewport culling to only render visible elements
-3. Optimize event handling
-4. Optimize media handling for camera captures
-5. Test performance across different devices
+1. Create a Firebase project with Firestore database, Storage, and Authentication
+2. Install Firebase SDK and create a configuration module
+3. Implement basic anonymous authentication
+4. Design and create the Firestore data model for the guestbook and elements
+5. Create a FirebaseManager class for centralizing all Firebase operations
+6. Add security rules for Firestore and Storage
 
-**Deliverable**: A performant application that runs smoothly across different devices.
+**Deliverable**: A functioning Firebase backend with the application able to authenticate users anonymously.
 
-### Phase 11: Final Testing & Showcase Preparation (1-2 days)
-**Goal**: Prepare the application for classroom showcase and testing.
+### Phase 10: Element Synchronization
+**Goal**: Modify the existing element classes to support synchronization with Firebase.
 
 **Implementation Steps**:
-1. Conduct comprehensive testing across devices
-2. Fix any remaining bugs or issues
-3. Create demonstration scenarios
-4. Prepare documentation for testers
-5. Implement any final polish or refinements
+1. Update the CanvasElement base class to add:
+   - Firebase ID field
+   - User attribution fields
+   - Serialization/deserialization methods
+2. Modify all element subclasses (DrawingElement, TextElement, etc.) for Firebase compatibility
+3. Update CanvasManager to:
+   - Save new elements to Firestore
+   - Update changed elements in Firestore
+   - Delete elements from Firestore
+4. Implement real-time listeners for element changes
+5. Add conflict resolution for concurrent edits
+6. Test with multiple browser sessions
 
-**Deliverable**: A fully functional frontend version ready for classroom showcase and testing.
+**Deliverable**: Application capable of saving elements to Firebase and syncing changes in real-time.
+
+### Phase 11: Image & Media Storage
+**Goal**: Move from data URLs to Firebase Storage for images and camera captures.
+
+**Implementation Steps**:
+1. Create utility functions for uploading images to Firebase Storage
+2. Modify ImageElement to:
+   - Upload images to Storage instead of storing data URLs
+   - Load images from Storage URLs
+3. Update CameraTool and PolaroidFormatter to:
+   - Upload captured photos to Storage after formatting
+   - Store and display image references from Storage
+4. Add progress indicators during image uploads
+5. Implement client-side image compression to improve performance
+6. Test image synchronization across multiple devices
+
+**Deliverable**: Working image and camera tools that store media in Firebase Storage and sync across all users.
+
+### Phase 12: User Presence & Collaboration Features
+**Goal**: Implement real-time user presence and basic collaborative features.
+
+**Implementation Steps**:
+1. Create a user presence system using Firestore
+2. Add a UI component showing which users are currently viewing the guestbook
+3. Implement optional temporary usernames for visitors
+4. Add timestamp display for when elements were created
+5. Implement basic cursor position sharing (show where other users are)
+6. Add visual attribution for who created each element (optional display on hover)
+7. Test with multiple concurrent users
+
+**Deliverable**: A guestbook application that shows who is currently viewing and what each person has contributed.
+
+### Phase 13: Performance & Reliability Enhancements
+**Goal**: Ensure the application performs well with many elements and users.
+
+**Implementation Steps**:
+1. Implement throttling for frequent updates (like drawing paths)
+2. Add pagination or viewport-based loading for displaying large guestbooks
+3. Implement offline support using Firestore offline capabilities
+4. Add graceful reconnection handling
+5. Create a loading state for initial guestbook rendering
+6. Optimize rendering performance for canvases with many elements
+7. Test with simulated slow connections and many concurrent users
+
+**Deliverable**: A reliable application that performs well under various network conditions and with many elements.
+
+### Phase 14: Moderation & Administration
+**Goal**: Add basic moderation capabilities for inappropriate content.
+
+**Implementation Steps**:
+1. Create a simple admin interface (could be password-protected)
+2. Implement the ability to delete any element (admin only)
+3. Add a "clear canvas" function for complete resets (admin only)
+4. Create a system for reporting inappropriate content
+5. Add IP-based rate limiting to prevent spam (optional)
+6. Test moderation tools and admin features
+
+**Deliverable**: A guestbook with basic moderation capabilities to keep content appropriate.
+
+### Phase 15: Polish & User Experience
+**Goal**: Finalize the user experience to make the guestbook intuitive and engaging.
+
+**Implementation Steps**:
+1. Add a welcome overlay explaining the guestbook concept
+2. Create visual feedback for saving/loading states
+3. Implement error messages when operations fail
+4. Add "object owner" highlighting (elements light up when their creator views the page)
+5. Improve mobile experience specifically for collaborative features
+6. Create animated transitions for new elements
+7. Comprehensive testing on various devices and browsers
+
+**Deliverable**: A polished, user-friendly collaborative guestbook ready for public use.
 
 ## Technical Architecture
 
 ### Core Components
 
-#### Canvas Manager
-- Handles canvas initialization and resizing
-- Manages the rendering pipeline
-- Coordinates with other managers
-- Handles viewport transformations
+#### Current Components (Single-User Version)
+- **App**: Central controller that initializes and coordinates all components
+- **CanvasManager**: Manages canvas rendering, elements, and grid pattern
+- **Viewport**: Handles pan and zoom transformations
+- **ModeManager**: Manages the current interaction mode of the application
+- **ToolManager**: Manages the available tools and the currently selected tool
+- **SelectionManager**: Manages selection, movement, and deletion of canvas elements
+- **Tools**: Various tool implementations for different interactions
+  - SelectionTool, HandTool, DrawingTool, TextTool, StickyNoteTool, ImageTool, CameraTool, EraserTool
+- **Elements**: Various element types that can be added to the canvas
+  - DrawingElement, TextElement, StickyNoteElement, ImageElement
+- **Utils**: Utility classes for specific features
+  - CameraManager, PolaroidFormatter
 
-#### Element System
-- Base Canvas Element class
-- Specialized elements (Sticky Note, Drawing Path, Image)
-- Element rendering and manipulation
-- Hit testing and selection
+#### New Components (Collaborative Version)
+- **FirebaseManager**: Centralized management of all Firebase operations
+  - Authentication handling
+  - Firestore document operations
+  - Storage uploads and downloads
+  - Real-time listeners and presence management
+- **CollaborationManager**: Coordinates real-time updates between users
+  - Synchronizes element changes
+  - Manages user presence data
+  - Handles conflict resolution
+- **UserPresenceSystem**: Tracks and displays active users
+  - Shows who is currently viewing the guestbook
+  - Updates presence status in real-time
+  - Manages cursor position sharing
+- **AdminInterface**: Provides moderation capabilities
+  - Element deletion for inappropriate content
+  - Canvas clearing functionality
+  - User management (optional)
 
-#### Tool Manager
-- Tracks the currently selected tool
-- Handles tool switching and state
-- Delegates input to the appropriate tool handler
+### Data Model Changes
 
-#### Mode Manager
-- Tracks the current interaction mode
-- Handles mode switching
-- Provides context for event handling
+#### Firestore Structure
+```
+- guestbook/
+  |- main/              # Single document with metadata
+  |   |- name
+  |   |- createdAt
+  |   |- lastModified
+  |
+  |- elements/          # Collection of all elements
+  |   |- [element_id]/
+  |       |- type
+  |       |- createdAt
+  |       |- createdBy
+  |       |- lastModified
+  |       |- properties  # Element-specific data
+  |
+  |- presence/          # Collection for active users
+      |- [user_id]/
+          |- name
+          |- color
+          |- lastActive
+          |- cursorPosition
+```
 
-#### Selection Manager
-- Tracks selected elements
-- Handles transformation operations
-- Manages selection UI
+#### Firebase Storage Structure
+```
+- guestbook-images/
+  |- uploads/           # Uploaded images
+  |   |- [timestamp]-[random_id].jpg
+  |
+  |- camera-captures/   # Photos from camera
+      |- [timestamp]-[random_id].jpg
+```
 
-#### Camera Manager
-- Handles camera access and permissions
-- Manages video stream
-- Provides camera switching functionality
-- Handles orientation issues
+### Element Changes
+- **Updated CanvasElement Base Class**:
+  - Add Firebase ID field
+  - Add user attribution fields (createdBy, updatedBy)
+  - Add timestamp fields (createdAt, updatedAt)
+  - Add serialize/deserialize methods for Firebase
+- **Updated Element Subclasses**:
+  - Add specialized serialization based on element type
+  - Handle remote updates and conflict resolution
+  - Support for Firebase Storage references
 
-### Event Handling System
-- Pointer events (down, move, up)
-- Keyboard events for shortcuts
-- Touch events for mobile support
-- Media events for camera handling
-- Custom events for application state
+### Implementation Guidelines
 
-### Rendering Pipeline
-- Clear canvas
-- Draw background grid
-- Render all elements in z-index order
-- Render selection indicators
-- Render UI overlays
-- Render camera preview when active
+#### Element Serialization
+- Each element type needs:
+  - A `serialize()` method to convert to Firebase format
+  - A static `deserialize()` method to convert from Firebase format
+  - Handling for remote IDs vs. local temporary IDs
 
-## Data Models
+#### Real-time Updates
+- Use Firestore's `onSnapshot` listeners for real-time updates
+- Implement throttling for high-frequency events
+- Use batched writes for efficiency when possible
 
-### Viewport
-- Position (x, y)
-- Zoom level
-- Transformation matrix
+#### Conflict Resolution
+- Use timestamps to determine the most recent version
+- Implement optimistic updates with fallback
+- For drawing operations, use small batched updates
 
-### Canvas Element (Base)
-- Unique ID
-- Type identifier
-- Position (x, y)
-- Rotation angle
-- Scale (x, y)
-- Z-index for stacking
-- Creation and update timestamps
+#### Image Handling
+- Replace all data URLs with Firebase Storage references
+- Add client-side compression before upload
+- Implement upload progress indicators
+- Keep image dimensions in metadata for faster loading
 
-### Sticky Note
-- Inherits from Canvas Element
-- Background color (#ED682B)
-- Text content
-- Text color (white)
-- Dimensions (width, height)
+#### Offline Support
+- Enable Firestore offline persistence
+- Add visual indicators for offline status
+- Implement retry logic for failed operations
 
-### Drawing Path
-- Inherits from Canvas Element
-- Collection of points or path segments
-- Stroke properties (color, width, style)
-- Pressure data if available
+## Security Considerations
 
-### Image Element
-- Inherits from Canvas Element
-- Image source (URL or data)
-- Dimensions (width, height)
-- Original dimensions
-- Supporting both uploaded and camera-captured images
+### Firestore Rules
+- Anyone can read elements
+- Only authenticated users (even anonymous) can write
+- Only admins can delete other users' elements
+- Rate limiting to prevent abuse
 
-## Implementation Guidelines
+### Storage Rules
+- Size limits on uploaded images
+- Type restrictions to prevent malicious files
+- Permission checks to ensure proper access
 
-### Code Structure
-- Use object-oriented approach with ES6 classes
-- Implement manager classes for each major subsystem
-- Use event delegation for efficient event handling
-- Separate rendering logic from business logic
-
-### Performance Considerations
-- Optimize rendering with requestAnimationFrame
-- Implement viewport culling (only render visible elements)
-- Use object pooling for frequent operations
-- Batch updates when possible
-- Optimize camera and image handling for memory efficiency
-
-### Cross-Browser Compatibility
-- Test on major browsers (Chrome, Firefox, Safari, Edge)
-- Provide fallbacks for unsupported features
-- Use feature detection rather than browser detection
-- Handle camera compatibility issues gracefully
-
-### Mobile Considerations
-- Support touch events for all interactions
-- Ensure proper viewport handling on mobile devices
-- Test on various screen sizes
-- Optimize for touch targets and mobile UX
-- Handle device orientation changes for camera
-
-### Accessibility
-- Support keyboard navigation where possible
-- Provide appropriate ARIA attributes
-- Ensure proper focus management
-- Test with screen readers
-
-## UI Components
-
-### Main Canvas
-- Full-screen canvas element with dotted grid background
-- Responsive to window resizing
-- Supports all interaction modes
-
-### Toolbar
-- Vertical orientation on the left side
-- Tool icons with visual selection state
-- Responsive design for different screen sizes
-- Camera tool icon added to the toolbar
-
-### Camera Interface
-- Camera preview overlay when tool is active
-- Capture button prominently displayed
-- Camera switching button (front/back) on mobile
-- Permission request UI with clear instructions
-- Loading and processing indicators
-
-### Information Panel
-- Located in the top-right corner
-- Displays current mode and relevant information
-- Collapsible on mobile devices
-
-### User Attribution
-- "Made by [Username]" displayed in the bottom-right corner
-- Subtle styling that doesn't interfere with canvas content
+### General Security
+- Input sanitization for text elements
+- Throttling to prevent DoS attacks
+- Optional bad word filtering for text content
 
 ## Testing Strategy
 
-### Phase Testing
-- Test each phase thoroughly before moving to the next
-- Create test cases for each feature
-- Test across different browsers and devices
-- Get feedback from potential users
+### Firebase Integration Testing
+- Verify authentication flow works correctly
+- Ensure elements save and load properly
+- Test real-time updates with multiple sessions
 
-### Integration Testing
-- Test how components work together
-- Ensure smooth transitions between tools and modes
-- Verify that all features work correctly in combination
+### Concurrent Edit Testing
+- Test multiple users editing the same area
+- Verify conflict resolution works as expected
+- Test with simulated network delays
 
-### User Testing
-- Conduct user testing sessions
-- Gather feedback on usability and intuitiveness
-- Identify pain points and areas for improvement
+### Performance Testing
+- Test with many elements (100+)
+- Test with multiple concurrent users
+- Verify image loading performs well
 
-### Camera Testing
-- Test camera access on various devices and browsers
-- Verify proper handling of permissions
-- Test different camera orientations and aspect ratios
-- Verify the Polaroid effect rendering
+### Mobile & Cross-browser Testing
+- Test on iOS and Android devices
+- Verify functionality in major browsers
+- Test with touch and mouse interactions
 
-## Showcase Preparation
+## Deployment Considerations
 
-### Demonstration Scenarios
-1. **Basic Navigation**: Show how to pan and zoom around the canvas
-2. **Drawing Demo**: Create a simple drawing to demonstrate the drawing tool
-3. **Sticky Note Creation**: Add and edit sticky notes
-4. **Object Manipulation**: Select, move, and delete canvas elements
-5. **Image Upload**: Upload and position an image on the canvas
-6. **Camera Capture**: Capture a photo and show how it appears on the canvas with the Polaroid effect
+### Firebase Configuration
+- Set up proper production project
+- Configure security rules for production
+- Set up monitoring and logging
 
-### Documentation for Testers
-- Provide a quick start guide
-- Document available features and how to use them
-- Include known limitations or issues
-- Provide feedback collection mechanism
+### Hosting
+- Configure proper hosting (Firebase Hosting recommended)
+- Set up custom domain if needed
+- Configure proper caching headers
 
-## Project Timeline
-- **Phase 1-3**: Canvas setup, navigation, and toolbar (Week 1)
-- **Phase 4-6**: Drawing, sticky notes, and selection (Week 2)
-- **Phase 7-9**: Image handling, UI polish, and camera feature (Week 3)
-- **Phase 10-11**: Optimization and showcase preparation (Week 4)
-
-This specification provides a comprehensive guide for implementing the interactive canvas application using vanilla HTML, CSS, and JavaScript. The phase-by-phase approach ensures that you have a functional, testable feature at the end of each phase, making it ideal for classroom showcase and testing.
+### Performance Monitoring
+- Add Firebase Performance Monitoring
+- Set up alerts for errors or performance issues
+- Monitor storage and database usage

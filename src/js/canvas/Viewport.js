@@ -16,7 +16,7 @@ export class Viewport {
         this.scale = 1;
         
         // Minimum and maximum zoom levels
-        this.minScale = 0.1;
+        this.minScale = 0.25;
         this.maxScale = 5;
         
         // Transformation matrix
@@ -32,6 +32,9 @@ export class Viewport {
         // Pan state tracking
         this.isPanning = false;
         this.lastPanPoint = { x: 0, y: 0 };
+        
+        // Change listeners
+        this.changeListeners = [];
     }
     
     /**
@@ -48,6 +51,9 @@ export class Viewport {
         };
         
         this.isPanning = false;
+        
+        // Notify listeners
+        this.notifyChangeListeners();
     }
     
     /**
@@ -82,6 +88,9 @@ export class Viewport {
         
         // Update the last pan point
         this.lastPanPoint = { x, y };
+        
+        // Notify listeners
+        this.notifyChangeListeners();
     }
     
     /**
@@ -122,6 +131,9 @@ export class Viewport {
         // Update viewport position
         this.x = this.transform.e;
         this.y = this.transform.f;
+        
+        // Notify listeners
+        this.notifyChangeListeners();
     }
     
     /**
@@ -175,5 +187,39 @@ export class Viewport {
         const x = canvasX * this.scale + this.transform.e;
         const y = canvasY * this.scale + this.transform.f;
         return { x, y };
+    }
+    
+    /**
+     * Add a change listener
+     * @param {Function} listener - The listener function
+     */
+    addChangeListener(listener) {
+        if (typeof listener === 'function' && !this.changeListeners.includes(listener)) {
+            this.changeListeners.push(listener);
+        }
+    }
+    
+    /**
+     * Remove a change listener
+     * @param {Function} listener - The listener function to remove
+     */
+    removeChangeListener(listener) {
+        const index = this.changeListeners.indexOf(listener);
+        if (index !== -1) {
+            this.changeListeners.splice(index, 1);
+        }
+    }
+    
+    /**
+     * Notify all change listeners
+     */
+    notifyChangeListeners() {
+        this.changeListeners.forEach(listener => {
+            try {
+                listener(this);
+            } catch (error) {
+                console.error('Error in viewport change listener:', error);
+            }
+        });
     }
 } 

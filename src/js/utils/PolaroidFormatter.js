@@ -12,7 +12,9 @@ export class PolaroidFormatter {
      * @param {string} options.borderColor - Color of the border (default: white)
      * @param {boolean} options.addShadow - Whether to add a shadow effect (default: true)
      * @param {string} options.caption - Optional caption text to add to the bottom border
-     * @returns {Promise<string>} - Data URL of the formatted image
+     * @param {FirebaseManager} options.firebaseManager - Optional Firebase manager for uploading
+     * @param {boolean} options.uploadToFirebase - Whether to upload the result to Firebase (default: false)
+     * @returns {Promise<string>} - Data URL or Firebase Storage URL of the formatted image
      */
     static async format(imageDataUrl, options = {}) {
         console.log('PolaroidFormatter: Formatting image with options:', {
@@ -20,9 +22,44 @@ export class PolaroidFormatter {
             bottomBorderWidthRatio: options.bottomBorderWidthRatio || 0.25,
             borderColor: options.borderColor || '#FFFFFF',
             addShadow: options.addShadow !== false,
-            captionProvided: !!options.caption
+            captionProvided: !!options.caption,
+            uploadToFirebase: options.uploadToFirebase || false
         });
         
+        try {
+            // Format the image
+            const formattedDataUrl = await this._formatImage(imageDataUrl, options);
+            
+            // Upload to Firebase if requested
+            if (options.uploadToFirebase && options.firebaseManager) {
+                try {
+                    console.log('PolaroidFormatter: Uploading formatted image to Firebase Storage');
+                    const storageUrl = await options.firebaseManager.uploadImageFromDataUrl(formattedDataUrl, 'polaroids');
+                    console.log('PolaroidFormatter: Image uploaded to Firebase Storage:', storageUrl);
+                    return storageUrl;
+                } catch (error) {
+                    console.error('PolaroidFormatter: Error uploading to Firebase Storage:', error);
+                    // Fall back to data URL
+                    return formattedDataUrl;
+                }
+            }
+            
+            // Return the formatted data URL
+            return formattedDataUrl;
+        } catch (error) {
+            console.error('PolaroidFormatter: Error formatting image:', error);
+            throw error;
+        }
+    }
+    
+    /**
+     * Internal method to format the image
+     * @param {string} imageDataUrl - The image data URL
+     * @param {Object} options - Formatting options
+     * @returns {Promise<string>} - Data URL of the formatted image
+     * @private
+     */
+    static _formatImage(imageDataUrl, options = {}) {
         return new Promise((resolve, reject) => {
             try {
                 // Check if on mobile device

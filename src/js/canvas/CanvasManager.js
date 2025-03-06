@@ -26,9 +26,22 @@ export class CanvasManager {
         // Viewport reference (will be set by the app)
         this.viewport = null;
         
+        // Tool manager reference (will be set by the app)
+        this.toolManager = null;
+        
+        // Firebase manager reference (will be set by the app)
+        this.firebaseManager = null;
+        
         // Render request state
         this._renderRequested = false;
         this._animationFrameId = null;
+        
+        // Element sync state
+        this.isSyncing = false;
+        this.unsubscribeElementListener = null;
+        
+        // Element change listeners
+        this.elementChangeListeners = [];
     }
     
     /**
@@ -102,6 +115,14 @@ export class CanvasManager {
     }
     
     /**
+     * Set Firebase manager reference
+     * @param {FirebaseManager} firebaseManager - The Firebase manager instance
+     */
+    setFirebaseManager(firebaseManager) {
+        this.firebaseManager = firebaseManager;
+    }
+    
+    /**
      * Clear the canvas
      */
     clear() {
@@ -154,15 +175,37 @@ export class CanvasManager {
             startY = Math.floor(topLeft.y / this.gridSpacing) * this.gridSpacing;
             endX = Math.ceil(bottomRight.x / this.gridSpacing) * this.gridSpacing;
             endY = Math.ceil(bottomRight.y / this.gridSpacing) * this.gridSpacing;
-        }
-        
-        // Draw grid dots
-        for (let x = startX; x <= endX; x += this.gridSpacing) {
-            for (let y = startY; y <= endY; y += this.gridSpacing) {
-                // Draw a small dot
-                this.ctx.beginPath();
-                this.ctx.arc(x, y, this.gridDotSize, 0, Math.PI * 2);
-                this.ctx.fill();
+            
+            // Adjust grid spacing based on zoom level to prevent too many dots
+            let adjustedGridSpacing = this.gridSpacing;
+            if (this.viewport.scale < 0.5) {
+                // Double the grid spacing when zoomed out
+                adjustedGridSpacing = this.gridSpacing * 2;
+                
+                // For very low zoom levels, increase spacing even more
+                if (this.viewport.scale < 0.3) {
+                    adjustedGridSpacing = this.gridSpacing * 4;
+                }
+            }
+            
+            // Draw grid dots
+            for (let x = startX; x <= endX; x += adjustedGridSpacing) {
+                for (let y = startY; y <= endY; y += adjustedGridSpacing) {
+                    // Draw a small dot
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, this.gridDotSize, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            }
+        } else {
+            // Draw grid dots with default spacing
+            for (let x = startX; x <= endX; x += this.gridSpacing) {
+                for (let y = startY; y <= endY; y += this.gridSpacing) {
+                    // Draw a small dot
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, this.gridDotSize, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
             }
         }
         
@@ -197,55 +240,47 @@ export class CanvasManager {
     }
     
     /**
-     * Render all canvas elements
+     * Render the canvas
      */
     render() {
-        // Check if context exists
-        if (!this.ctx) {
-            console.error('Canvas context not initialized, cannot render');
-            return;
-        }
-        
         // Clear the canvas
-        this.clear();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw the grid with viewport transformation
+        // Apply viewport transformation
+        this.viewport.applyTransform(this.ctx);
+        
+        // Draw grid
         this.drawGrid();
         
         // Sort elements by z-index
         const sortedElements = [...this.elements].sort((a, b) => a.zIndex - b.zIndex);
         
-        // Render each element
-        sortedElements.forEach(element => {
-            if (element.visible) {
-                // Save context state
-                this.ctx.save();
-                
-                // Apply viewport transformation if available
-                if (this.viewport) {
-                    this.viewport.applyTransform(this.ctx);
-                }
-                
-                // Render the element
-                element.render(this.ctx);
-                
-                // If the element is selected, draw selection indicators
-                if (element.selected) {
-                    this.drawSelectionIndicators(element);
-                }
-                
-                // Restore context state
-                this.ctx.restore();
-            }
-        });
-        
-        // Render mobile text indicator if the active tool is TextTool and has a renderMobileIndicator method
-        if (this.toolManager && this.toolManager.getCurrentTool()) {
-            const currentTool = this.toolManager.getCurrentTool();
-            if (currentTool.type === 'text' && typeof currentTool.renderMobileIndicator === 'function') {
-                currentTool.renderMobileIndicator(this.ctx);
+        // Draw elements
+        for (const element of sortedElements) {
+            if (!element.visible) continue;
+            
+            // Apply animations and effects
+            const isAnimated = element.applyNewElementAnimation(this.ctx);
+            const isHighlighted = element.applyOwnerHighlighting(this.ctx);
+            
+            // Render the element
+            element.render(this.ctx);
+            
+            // Restore context after effects
+            element.restoreAfterHighlighting(this.ctx, isHighlighted);
+            element.restoreAfterAnimation(this.ctx, isAnimated);
+            
+            // Draw selection indicators if element is selected
+            if (this.selectedElement === element) {
+                this.drawSelectionIndicators(element);
             }
         }
+        
+        // Restore the canvas transformation
+        this.viewport.restoreTransform(this.ctx);
+        
+        // Reset render flag
+        this.needsRender = false;
     }
     
     /**
@@ -464,23 +499,457 @@ export class CanvasManager {
     }
     
     /**
-     * Add an element to the canvas
-     * @param {Object} element - The element to add
+     * Add element
+     * @param {CanvasElement} element - The element to add
      */
     addElement(element) {
+        // Add element to array
         this.elements.push(element);
+        
+        // If it's an image element with a data URL, upload it to Firebase Storage
+        if (element.type === 'image' && this.firebaseManager && !element.isStorageUrl) {
+            // Upload the image to Firebase Storage
+            element.uploadToFirebaseIfNeeded(this.firebaseManager).then(() => {
+                // Update the element in Firebase if it's already synced
+                if (this.isSyncing && element.isSynced && element.firebaseId) {
+                    this.updateElementInFirebase(element);
+                }
+            });
+        }
+        
+        // Save element to Firebase if syncing is enabled
+        if (this.isSyncing && this.firebaseManager && !element.isSynced) {
+            this.saveElementToFirebase(element);
+        }
+        
+        // Request render
         this.requestRender();
     }
     
     /**
-     * Remove an element from the canvas
-     * @param {Object} element - The element to remove
+     * Remove element
+     * @param {CanvasElement} element - The element to remove
      */
     removeElement(element) {
+        // Find element index
         const index = this.elements.indexOf(element);
         if (index !== -1) {
+            // Remove element from array
             this.elements.splice(index, 1);
+            
+            // Delete element from Firebase if syncing is enabled
+            if (this.isSyncing && this.firebaseManager && element.firebaseId) {
+                this.deleteElementFromFirebase(element);
+            }
+            
+            // Request render
             this.requestRender();
         }
+    }
+    
+    /**
+     * Start syncing elements with Firebase
+     * @param {boolean} useViewportLoading - Whether to use viewport-based loading
+     */
+    startSyncingElements(useViewportLoading = true) {
+        if (!this.firebaseManager || this.isSyncing) return;
+        
+        this.isSyncing = true;
+        
+        // Use viewport-based loading if enabled
+        if (useViewportLoading && this.viewport) {
+            this.setupViewportBasedLoading();
+        } else {
+            // Traditional full loading
+            this.unsubscribeElementListener = this.firebaseManager.listenForElementChanges(
+                this.handleElementChanges.bind(this)
+            );
+        }
+        
+        console.log('Started syncing elements with Firebase');
+    }
+    
+    /**
+     * Set up viewport-based loading
+     */
+    setupViewportBasedLoading() {
+        // Initial viewport query
+        this.queryElementsInViewport();
+        
+        // Set up viewport change listener
+        this.viewportChangeHandler = this.handleViewportChange.bind(this);
+        this.viewport.addChangeListener(this.viewportChangeHandler);
+    }
+    
+    /**
+     * Handle viewport change for viewport-based loading
+     */
+    handleViewportChange() {
+        // Throttle viewport queries to avoid excessive Firestore reads
+        if (!this._throttledViewportQuery) {
+            this._throttledViewportQuery = this.throttleViewportQuery();
+        }
+        
+        this._throttledViewportQuery();
+    }
+    
+    /**
+     * Throttle viewport queries
+     * @returns {Function} - Throttled function
+     */
+    throttleViewportQuery() {
+        let timeout;
+        let lastQueryTime = 0;
+        const throttleDelay = 500; // ms
+        
+        return () => {
+            const now = Date.now();
+            const timeSinceLastQuery = now - lastQueryTime;
+            
+            // Clear any existing timeout
+            if (timeout) {
+                clearTimeout(timeout);
+            }
+            
+            // If we've waited long enough, query immediately
+            if (timeSinceLastQuery >= throttleDelay) {
+                lastQueryTime = now;
+                this.queryElementsInViewport();
+            } else {
+                // Otherwise, set a timeout for the remaining time
+                timeout = setTimeout(() => {
+                    lastQueryTime = Date.now();
+                    this.queryElementsInViewport();
+                }, throttleDelay - timeSinceLastQuery);
+            }
+        };
+    }
+    
+    /**
+     * Query elements in the current viewport
+     */
+    async queryElementsInViewport() {
+        if (!this.firebaseManager || !this.viewport) return;
+        
+        try {
+            // Calculate viewport bounds with padding
+            const padding = 500; // Add padding around viewport to preload nearby elements
+            const bounds = this.getViewportBounds(padding);
+            
+            // Unsubscribe from previous listener if exists
+            if (this.unsubscribeElementListener) {
+                this.unsubscribeElementListener();
+            }
+            
+            // Set up new listener with viewport bounds
+            this.unsubscribeElementListener = this.firebaseManager.listenForElementsInViewport(
+                bounds,
+                this.handleElementChanges.bind(this)
+            );
+            
+            console.log('Queried elements in viewport:', bounds);
+        } catch (error) {
+            console.error('Error querying elements in viewport:', error);
+        }
+    }
+    
+    /**
+     * Get the current viewport bounds with padding
+     * @param {number} padding - Padding to add around viewport
+     * @returns {Object} - Viewport bounds
+     */
+    getViewportBounds(padding = 0) {
+        // Get viewport dimensions
+        const viewportWidth = this.canvas.width / this.viewport.scale;
+        const viewportHeight = this.canvas.height / this.viewport.scale;
+        
+        // Calculate bounds with padding
+        return {
+            minX: this.viewport.x - padding,
+            minY: this.viewport.y - padding,
+            maxX: this.viewport.x + viewportWidth + padding,
+            maxY: this.viewport.y + viewportHeight + padding
+        };
+    }
+    
+    /**
+     * Handle element changes from Firebase
+     * @param {Array} elements - Array of all current elements
+     * @param {Object} changes - Object containing added, modified, and removed elements
+     */
+    handleElementChanges(elements, changes) {
+        // Process added elements
+        if (changes.added && changes.added.length > 0) {
+            for (const elementData of changes.added) {
+                // Create element from Firebase data
+                this.createElementFromFirebase(elementData)
+                    .then(element => {
+                        if (element) {
+                            // Mark as new for animation
+                            element.isNew = true;
+                            element.animationStartTime = Date.now();
+                            
+                            // Add to elements array
+                            this.elements.push(element);
+                            
+                            // Request render
+                            this.requestRender();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error creating element from Firebase:', error);
+                    });
+            }
+        }
+        
+        // Process modified elements
+        if (changes.modified && changes.modified.length > 0) {
+            for (const elementData of changes.modified) {
+                // Find existing element
+                const existingElement = this.getElementById(elementData.id);
+                
+                if (existingElement) {
+                    // Update element from Firebase data
+                    this.updateElementFromFirebase(existingElement, elementData);
+                    
+                    // Request render
+                    this.requestRender();
+                }
+            }
+        }
+        
+        // Process removed elements
+        if (changes.removed && changes.removed.length > 0) {
+            for (const elementData of changes.removed) {
+                // Find existing element
+                const existingElement = this.getElementById(elementData.id);
+                
+                if (existingElement) {
+                    // Remove element from array
+                    const index = this.elements.indexOf(existingElement);
+                    if (index !== -1) {
+                        this.elements.splice(index, 1);
+                    }
+                    
+                    // Request render
+                    this.requestRender();
+                }
+            }
+        }
+        
+        // Notify element change listeners
+        this.notifyElementChangeListeners(this.elements, changes);
+    }
+    
+    /**
+     * Create an element from Firebase data
+     * @param {Object} elementData - Element data from Firebase
+     * @returns {Promise<CanvasElement|null>} - Created element or null if creation failed
+     */
+    async createElementFromFirebase(elementData) {
+        try {
+            if (!this.firebaseManager) {
+                console.error('FirebaseManager not set, cannot create element from Firebase data');
+                return null;
+            }
+            
+            // Get element properties
+            const properties = elementData.properties;
+            
+            // Use FirebaseManager to deserialize the element
+            const element = await this.firebaseManager.deserializeElement(properties, elementData.type);
+            
+            if (!element) {
+                console.error('Failed to deserialize element:', elementData);
+                return null;
+            }
+            
+            // Set Firebase ID and sync status
+            element.firebaseId = elementData.id;
+            element.isSynced = true;
+            
+            // Set attribution information
+            element.createdBy = elementData.createdBy || 'anonymous';
+            element.createdAt = elementData.createdAt?.toMillis() || Date.now();
+            element.updatedBy = elementData.updatedBy || elementData.createdBy || 'anonymous';
+            element.updatedAt = elementData.lastModified?.toMillis() || elementData.createdAt?.toMillis() || Date.now();
+            
+            return element;
+        } catch (error) {
+            console.error('Error creating element from Firebase data:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Update an element from Firebase data
+     * @param {CanvasElement} element - The element to update
+     * @param {Object} elementData - Element data from Firebase
+     */
+    updateElementFromFirebase(element, elementData) {
+        try {
+            // Get element properties
+            const properties = elementData.properties;
+            
+            // Update element with properties
+            element.update(properties);
+            
+            // Update attribution information
+            if (elementData.updatedBy) {
+                element.updatedBy = elementData.updatedBy;
+            }
+            if (elementData.lastModified) {
+                element.updatedAt = elementData.lastModified.toMillis();
+            }
+            
+            // Mark as synced
+            element.isSynced = true;
+            
+            // Request render
+            this.requestRender();
+        } catch (error) {
+            console.error('Error updating element from Firebase data:', error);
+        }
+    }
+    
+    /**
+     * Get element by ID
+     * @param {string} id - The element ID
+     * @returns {CanvasElement|null} - The element or null if not found
+     */
+    getElementById(id) {
+        return this.elements.find((element) => element.id === id || element.firebaseId === id);
+    }
+    
+    /**
+     * Save element to Firebase
+     * @param {CanvasElement} element - The element to save
+     */
+    async saveElementToFirebase(element) {
+        try {
+            if (!this.firebaseManager) return;
+            
+            // Set created by if not set
+            if (!element.createdBy && this.firebaseManager.getCurrentUser()) {
+                element.createdBy = this.firebaseManager.getCurrentUser().uid;
+                element.createdAt = Date.now();
+            }
+            
+            // Set updated by
+            element.updatedBy = this.firebaseManager.getCurrentUser() ? 
+                this.firebaseManager.getCurrentUser().uid : 'anonymous';
+            element.updatedAt = Date.now();
+            
+            // Save element to Firebase
+            const firebaseId = await this.firebaseManager.saveElement(element);
+            
+            // Update element with Firebase ID
+            element.update({
+                firebaseId,
+                isSynced: true
+            });
+            
+            console.log('Element saved to Firebase:', firebaseId);
+        } catch (error) {
+            console.error('Error saving element to Firebase:', error);
+        }
+    }
+    
+    /**
+     * Update element in Firebase
+     * @param {CanvasElement} element - The element to update
+     */
+    async updateElementInFirebase(element) {
+        try {
+            if (!this.firebaseManager || !element.firebaseId) return;
+            
+            // Set updated by
+            element.updatedBy = this.firebaseManager.getCurrentUser() ? 
+                this.firebaseManager.getCurrentUser().uid : 'anonymous';
+            element.updatedAt = Date.now();
+            
+            // Update element in Firebase
+            await this.firebaseManager.updateElement(element.firebaseId, element);
+            
+            console.log('Element updated in Firebase:', element.firebaseId);
+        } catch (error) {
+            console.error('Error updating element in Firebase:', error);
+        }
+    }
+    
+    /**
+     * Delete element from Firebase
+     * @param {CanvasElement} element - The element to delete
+     */
+    async deleteElementFromFirebase(element) {
+        try {
+            if (!this.firebaseManager || !element.firebaseId) return;
+            
+            // Delete element from Firebase
+            await this.firebaseManager.deleteElement(element.firebaseId);
+            
+            console.log('Element deleted from Firebase:', element.firebaseId);
+        } catch (error) {
+            console.error('Error deleting element from Firebase:', error);
+        }
+    }
+    
+    /**
+     * Stop syncing elements with Firebase
+     */
+    stopSyncingElements() {
+        if (!this.isSyncing) return;
+        
+        // Unsubscribe from element changes
+        if (this.unsubscribeElementListener) {
+            this.unsubscribeElementListener();
+            this.unsubscribeElementListener = null;
+        }
+        
+        // Remove viewport change listener if exists
+        if (this.viewport && this.viewportChangeHandler) {
+            this.viewport.removeChangeListener(this.viewportChangeHandler);
+            this.viewportChangeHandler = null;
+        }
+        
+        this.isSyncing = false;
+        
+        console.log('Stopped syncing elements with Firebase');
+    }
+    
+    /**
+     * Add an element change listener
+     * @param {Function} listener - The listener function
+     */
+    addElementChangeListener(listener) {
+        if (typeof listener === 'function' && !this.elementChangeListeners.includes(listener)) {
+            this.elementChangeListeners.push(listener);
+        }
+    }
+    
+    /**
+     * Remove an element change listener
+     * @param {Function} listener - The listener function to remove
+     */
+    removeElementChangeListener(listener) {
+        const index = this.elementChangeListeners.indexOf(listener);
+        if (index !== -1) {
+            this.elementChangeListeners.splice(index, 1);
+        }
+    }
+    
+    /**
+     * Notify all element change listeners
+     * @param {Array} elements - Array of elements
+     * @param {Object} changes - Object with added, modified, and removed elements
+     */
+    notifyElementChangeListeners(elements, changes) {
+        this.elementChangeListeners.forEach(listener => {
+            try {
+                listener(elements, changes);
+            } catch (error) {
+                console.error('Error in element change listener:', error);
+            }
+        });
     }
 } 

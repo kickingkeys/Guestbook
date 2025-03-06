@@ -43,10 +43,29 @@ export class CameraManager {
                 throw new Error('Camera API is not supported in this browser');
             }
 
+            // Check if we're in a secure context (HTTPS)
+            if (!window.isSecureContext) {
+                console.error('CameraManager: Not in a secure context (HTTPS), camera access may be restricted');
+                // We'll still try to access the camera, but log the warning
+            }
+
             console.log('CameraManager: Requesting camera permissions...');
             
-            // Get camera stream with appropriate constraints for the device
-            this.stream = await this._getStreamWithOrientationConstraints();
+            try {
+                // Get camera stream with appropriate constraints for the device
+                this.stream = await this._getStreamWithOrientationConstraints();
+            } catch (streamError) {
+                console.warn('CameraManager: Failed with initial constraints, trying fallback constraints', streamError);
+                
+                // Try with minimal constraints as fallback
+                const fallbackConstraints = {
+                    video: true,
+                    audio: false
+                };
+                
+                console.log('CameraManager: Using fallback constraints:', JSON.stringify(fallbackConstraints));
+                this.stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+            }
 
             console.log('CameraManager: Camera permissions granted');
             console.log('CameraManager: Stream tracks:', this.stream.getVideoTracks().map(track => ({
@@ -66,9 +85,18 @@ export class CameraManager {
                         videoWidth: this.videoElement.videoWidth,
                         videoHeight: this.videoElement.videoHeight
                     });
-                    this.videoElement.play();
+                    this.videoElement.play().catch(playError => {
+                        console.warn('CameraManager: Error playing video:', playError);
+                        // Continue anyway, as we might still be able to capture frames
+                    });
                     resolve();
                 };
+                
+                // Add timeout in case metadata never loads
+                setTimeout(() => {
+                    console.warn('CameraManager: Video metadata load timeout');
+                    resolve();
+                }, 3000);
             });
 
             // Set up orientation change listener
@@ -96,6 +124,8 @@ export class CameraManager {
                 errorMessage = 'Camera constraints cannot be satisfied.';
             } else if (error.name === 'TypeError' || error.message.includes('API')) {
                 errorMessage = 'Camera API is not supported in this browser.';
+            } else if (!window.isSecureContext) {
+                errorMessage = 'Camera access requires a secure connection (HTTPS).';
             }
             
             if (this.onErrorCallback) {
@@ -220,9 +250,10 @@ export class CameraManager {
 
     /**
      * Capture a frame from the video stream
+     * @param {boolean} applyOrientationCorrection - Whether to apply orientation correction (default: false)
      * @returns {string|null} - Data URL of the captured image or null if failed
      */
-    captureFrame() {
+    captureFrame(applyOrientationCorrection = false) {
         if (!this.isInitialized || !this.videoElement) {
             console.error('CameraManager: Cannot capture frame - camera not initialized');
             return null;
@@ -247,7 +278,7 @@ export class CameraManager {
             // Check if we need to handle orientation for mobile devices
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             
-            if (isMobile) {
+            if (isMobile && applyOrientationCorrection) {
                 // Apply transformations based on device orientation
                 this._applyOrientationCorrection(context, canvas.width, canvas.height);
             }
@@ -364,8 +395,24 @@ export class CameraManager {
      * @returns {boolean} - Whether the camera API is supported
      */
     static isSupported() {
-        const isSupported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        // Check if the MediaDevices API and getUserMedia are available
+        const hasMediaDevices = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+        
+        // Additional check for secure context (HTTPS) which is required for camera access
+        const isSecureContext = window.isSecureContext;
+        
+        // Log detailed information about the environment
+        console.log('CameraManager: Environment check:', {
+            hasMediaDevices,
+            isSecureContext,
+            protocol: window.location.protocol,
+            userAgent: navigator.userAgent
+        });
+        
+        // Consider the camera supported if we have the necessary APIs and are in a secure context
+        const isSupported = hasMediaDevices && isSecureContext;
         console.log('CameraManager: Camera API supported:', isSupported);
+        
         return isSupported;
     }
 } 

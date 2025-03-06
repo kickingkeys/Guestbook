@@ -190,49 +190,6 @@ body {
     color: #333;
 }
 
-/* Keyboard Shortcut Indicator */
-.shortcut-indicator {
-    position: absolute;
-    bottom: 60px;
-    left: 20px;
-    display: flex;
-    align-items: center;
-    background-color: white;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 14px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    z-index: 100;
-    opacity: 0.7;
-    transition: opacity 0.3s ease;
-    overflow: hidden; /* Prevent text from breaking out */
-}
-
-.shortcut-indicator:hover {
-    opacity: 1;
-}
-
-.shortcut-key {
-    background-color: #f0f0f0;
-    padding: 1px 4px;
-    border-radius: 4px;
-    font-weight: 600;
-    color: #333;
-    border: 1px solid #ddd;
-    margin-right: 5px;
-    display: inline-block;
-    min-width: 40px;
-    text-align: center;
-}
-
-.shortcut-text {
-    color: #666;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    font-weight: 500;
-    margin-right: 3px;
-}
-
 /* Attribution */
 .attribution {
     position: absolute;
@@ -324,45 +281,13 @@ body {
         right: 10px;
     }
     
-    /* Move shortcut indicator to top right, left of the Help button */
-    .shortcut-indicator {
-        bottom: auto;
-        left: auto;
-        top: 10px;
-        right: 80px; /* Position to the left of the Help button */
-        font-size: 11px;
-        padding: 4px 10px;
-        max-width: 200px;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        overflow: hidden;
-        display: inline-flex;
-        align-items: center;
-        width: auto;
-        box-sizing: border-box;
-        background-color: rgba(255, 255, 255, 0.95);
-        border-radius: 30px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-    
-    .shortcut-text {
-        order: 1; /* Make text appear first */
-        margin-right: 3px;
-    }
-    
-    .shortcut-key {
-        order: 2; /* Make key appear second */
-        min-width: 40px;
-    }
-    
-    /* Move zoom indicator below the Help button */
+    /* Position the zoom indicator */
     .zoom-indicator {
         bottom: auto;
-        left: auto;
-        top: 50px;
+        top: 40px;
         right: 10px;
-        font-size: 12px;
-        padding: 4px 10px;
+        font-size: 10px;
+        padding: 3px 8px;
     }
     
     .attribution {
@@ -394,33 +319,9 @@ body {
         height: 20px;
     }
     
-    /* Adjust shortcut indicator for very small screens */
-    .shortcut-indicator {
-        left: auto; /* Keep consistent with larger mobile view */
-        right: 70px; /* Slightly closer to the Help button on small screens */
-        max-width: 150px;
-        font-size: 10px;
-        padding: 2px 6px;
-    }
-    
-    .shortcut-key {
-        padding: 1px 3px;
-        font-size: 10px;
-        margin-right: 0;
-        min-width: 35px;
-    }
-    
-    .shortcut-text {
-        margin-right: 2px;
-        font-size: 10px;
-    }
-    
     .zoom-indicator {
-        bottom: auto;
-        left: auto;
         top: 50px;
-        right: 10px;
-        font-size: 12px;
+        max-width: 70px;
         padding: 4px 10px;
     }
     
@@ -816,4 +717,922 @@ body {
 
 .tool-button[data-tool="camera"].active svg {
     fill: #ED682B;
+}
+
+/* Online Users Panel */
+.online-users-panel {
+    position: absolute;
+    top: 20px;
+    right: -220px; /* Start off-screen */
+    width: 200px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    z-index: 1000;
+    font-family: Arial, sans-serif;
+    transition: right 0.3s ease;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.online-users-panel.visible {
+    right: 20px;
+}
+
+.online-users-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 999;
+    transition: transform 0.3s ease;
+}
+
+.online-users-toggle:hover {
+    transform: scale(1.05);
+}
+
+.online-users-toggle svg {
+    width: 24px;
+    height: 24px;
+}
+
+.online-users-toggle.active {
+    background-color: #ED682B;
+}
+
+.online-users-toggle.active svg path {
+    fill: white;
+}
+
+.panel-header {
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.panel-close {
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.panel-close:hover {
+    opacity: 0.7;
+}
+
+.users-list {
+    max-height: 150px;
+    overflow-y: auto;
+    margin-bottom: 15px;
+}
+
+.user-item {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.user-item:hover {
+    background-color: #f5f5f5;
+}
+
+.user-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+}
+
+.user-name {
+    font-size: 14px;
+    color: #333;
+}
+
+/* Mobile improvements for online users panel */
+@media (max-width: 768px) {
+    .online-users-panel {
+        top: auto;
+        bottom: -100%;
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-height: 60vh;
+        border-radius: 15px 15px 0 0;
+        transition: bottom 0.3s ease;
+    }
+    
+    .online-users-panel.visible {
+        bottom: 0;
+        right: 0;
+    }
+    
+    .online-users-toggle {
+        top: auto;
+        bottom: 70px;
+        right: 15px;
+        width: 36px;
+        height: 36px;
+    }
+    
+    .panel-header {
+        padding-bottom: 10px;
+    }
+    
+    .panel-header h3 {
+        font-size: 18px;
+    }
+    
+    .user-item {
+        padding: 10px;
+    }
+    
+    .users-list {
+        max-height: 40vh;
+    }
+}
+
+/* Element Attribution Tooltip */
+.element-attribution-tooltip {
+    position: absolute;
+    background-color: #fff;
+    color: #333;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 14px;
+    z-index: 1000;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    pointer-events: none;
+    max-width: 300px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.element-attribution-tooltip.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.attribution-header {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.attribution-type {
+    font-weight: 600;
+    color: #555;
+}
+
+.attribution-creator,
+.attribution-updater {
+    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.attribution-updater {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+}
+
+.attribution-user {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.user-name {
+    font-weight: 500;
+}
+
+.attribution-time {
+    color: #777;
+    font-size: 12px;
+    margin-left: 18px;
+}
+
+/* Responsive styles for mobile */
+@media (max-width: 768px) {
+    .element-attribution-tooltip {
+        padding: 10px;
+        font-size: 12px;
+        max-width: 250px;
+    }
+    
+    .attribution-time {
+        font-size: 11px;
+    }
+}
+
+/* Network Status */
+.network-status {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 10px 15px;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    font-size: 14px;
+    max-width: 300px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    pointer-events: auto;
+}
+
+.network-status.fade-out {
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+}
+
+.status-icon {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 10px;
+    flex-shrink: 0;
+}
+
+.online-icon {
+    background-color: #4CAF50; /* Green */
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+}
+
+.offline-icon {
+    background-color: #F44336; /* Red */
+    box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.3);
+}
+
+.connecting-icon {
+    background-color: #FFC107; /* Amber */
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.3);
+    animation: pulse 1.5s infinite;
+}
+
+.error-icon {
+    background-color: #F44336; /* Red */
+    box-shadow: 0 0 0 2px rgba(244, 67, 54, 0.3);
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.2);
+        opacity: 0.7;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.status-text {
+    flex-grow: 1;
+    color: #333;
+}
+
+.retry-button {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin-left: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s ease;
+}
+
+.retry-button:hover {
+    background-color: #0b7dda;
+}
+
+/* Mobile styles for network status */
+@media (max-width: 768px) {
+    .network-status {
+        bottom: auto;
+        top: 10px;
+        left: auto;
+        right: 10px;
+        max-width: 200px;
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 20px;
+    }
+    
+    .status-icon {
+        width: 10px;
+        height: 10px;
+        margin-right: 8px;
+    }
+    
+    /* Position the zoom indicator */
+    .zoom-indicator {
+        bottom: auto;
+        top: 50px;
+        left: auto;
+        right: 10px;
+        font-size: 12px;
+        padding: 6px 10px;
+        max-width: 80px;
+        text-align: center;
+        border-radius: 20px;
+    }
+}
+
+/* Loading State */
+.loading-state {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(250, 248, 244, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.loading-state.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.loading-state.fade-out {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.loading-content {
+    background-color: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    max-width: 400px;
+    width: 90%;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(237, 104, 43, 0.2);
+    border-top: 4px solid #ED682B;
+    border-radius: 50%;
+    margin: 0 auto 20px;
+    animation: spin 1s linear infinite;
+}
+
+.loading-title {
+    font-size: 24px;
+    color: #333;
+    margin: 0 0 20px;
+    font-weight: 600;
+}
+
+.loading-progress-container {
+    margin: 20px 0;
+}
+
+.loading-progress-bar {
+    height: 8px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.loading-progress-fill {
+    height: 100%;
+    background-color: #ED682B;
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.loading-progress-text {
+    text-align: right;
+    font-size: 14px;
+    color: #666;
+}
+
+.loading-message {
+    font-size: 16px;
+    color: #666;
+}
+
+body.loading-active {
+    overflow: hidden;
+}
+
+/* Mobile styles for loading state */
+@media (max-width: 768px) {
+    .loading-content {
+        padding: 20px;
+    }
+    
+    .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border-width: 3px;
+    }
+    
+    .loading-title {
+        font-size: 20px;
+        margin-bottom: 15px;
+    }
+    
+    .loading-progress-bar {
+        height: 6px;
+    }
+    
+    .loading-message {
+        font-size: 14px;
+    }
+}
+
+/* Offline Mode */
+body.offline-mode .canvas-container::after {
+    content: 'Offline Mode';
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(244, 67, 54, 0.8);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 1000;
+}
+
+body.offline-mode .toolbar {
+    border-color: rgba(244, 67, 54, 0.5);
+}
+
+body.offline-mode .tool-button.active {
+    background-color: rgba(244, 67, 54, 0.2);
+    border-color: rgba(244, 67, 54, 0.5);
+}
+
+/* Welcome Overlay */
+.welcome-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.welcome-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.welcome-content {
+    background-color: #FAF8F4;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    position: relative;
+    animation: welcome-appear 0.5s ease-out;
+}
+
+@keyframes welcome-appear {
+    0% {
+        transform: scale(0.9);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.welcome-content h2 {
+    color: #ED682B;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 28px;
+    text-align: center;
+}
+
+.welcome-description {
+    margin-bottom: 25px;
+    line-height: 1.6;
+}
+
+.welcome-description p {
+    margin-bottom: 15px;
+    font-size: 16px;
+}
+
+.welcome-description h3 {
+    margin-top: 20px;
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 20px;
+}
+
+.welcome-description ul {
+    padding-left: 20px;
+    margin-bottom: 20px;
+}
+
+.welcome-description li {
+    margin-bottom: 8px;
+}
+
+.welcome-button {
+    display: block;
+    width: 200px;
+    margin: 0 auto 15px;
+    padding: 12px 20px;
+    background-color: #ED682B;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.welcome-button:hover {
+    background-color: #d55a20;
+}
+
+.welcome-checkbox-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 15px;
+}
+
+.welcome-checkbox-container input {
+    margin-right: 8px;
+}
+
+.welcome-checkbox-container label {
+    font-size: 14px;
+    color: #666;
+}
+
+body.welcome-active {
+    overflow: hidden;
+}
+
+/* Mobile styles for welcome overlay */
+@media (max-width: 768px) {
+    .welcome-content {
+        padding: 20px;
+        width: 95%;
+    }
+    
+    .welcome-content h2 {
+        font-size: 22px;
+    }
+    
+    .welcome-description p,
+    .welcome-description li {
+        font-size: 14px;
+    }
+    
+    .welcome-description h3 {
+        font-size: 18px;
+    }
+    
+    .welcome-button {
+        width: 100%;
+        padding: 10px;
+        font-size: 16px;
+    }
+}
+
+/* Element owner highlighting */
+.canvas-element.owner-highlight {
+    filter: drop-shadow(0 0 8px rgba(237, 104, 43, 0.8));
+    transition: filter 0.3s ease;
+}
+
+/* Animated transitions for new elements */
+@keyframes element-appear {
+    0% {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.canvas-element.new-element {
+    animation: element-appear 0.5s ease-out forwards;
+}
+
+/* Error message toast */
+.error-toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #f44336;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    font-size: 14px;
+    max-width: 90%;
+    text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.error-toast.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.error-toast.fade-out {
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Saving indicator */
+.saving-indicator {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 6px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    z-index: 900;
+    font-size: 14px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.saving-indicator.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.saving-indicator .saving-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(237, 104, 43, 0.3);
+    border-top: 2px solid #ED682B;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: spin 1s linear infinite;
+}
+
+.saving-indicator .saving-text {
+    color: #333;
+}
+
+.saving-indicator.error {
+    background-color: rgba(244, 67, 54, 0.9);
+}
+
+.saving-indicator.error .saving-text {
+    color: white;
+}
+
+.saving-indicator.error .saving-spinner {
+    border-color: rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+}
+
+/* Mobile improvements for collaborative features */
+@media (max-width: 768px) {
+    .online-users-panel {
+        max-height: 40vh;
+        width: 80%;
+    }
+    
+    .user-item {
+        padding: 10px;
+    }
+    
+    .error-toast {
+        bottom: 70px;
+        padding: 10px 15px;
+        font-size: 13px;
+    }
+    
+    .saving-indicator {
+        bottom: 70px;
+        right: 10px;
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+}
+
+/* Camera file upload fallback */
+.camera-file-upload-fallback {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background-color: rgba(0, 0, 0, 0.8);
+    border-radius: 8px;
+    margin-top: 20px;
+    width: 80%;
+    max-width: 400px;
+}
+
+.camera-file-upload-fallback p {
+    color: white;
+    margin-bottom: 15px;
+    text-align: center;
+    font-size: 16px;
+}
+
+.camera-file-upload-fallback .file-upload-input {
+    display: none;
+}
+
+.camera-file-upload-fallback .file-upload-button {
+    background-color: #4285f4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.camera-file-upload-fallback .file-upload-button:hover {
+    background-color: #3367d6;
+}
+
+/* Improve camera interface styles */
+.camera-interface {
+    z-index: 1000;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.camera-fallback-message {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    background-color: rgba(0, 0, 0, 0.8);
+    border-radius: 12px;
+    text-align: center;
+    max-width: 400px;
+}
+
+.camera-fallback-message .fallback-icon {
+    font-size: 48px;
+    margin-bottom: 20px;
+}
+
+.camera-fallback-message h3 {
+    color: white;
+    margin-bottom: 15px;
+    font-size: 24px;
+}
+
+.camera-fallback-message p {
+    color: white;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.camera-fallback-message .fallback-close-button {
+    background-color: #ff5722;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 20px;
+    margin-top: 20px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.camera-fallback-message .fallback-close-button:hover {
+    background-color: #e64a19;
+}
+
+.user-settings {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.username-input {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.update-name-button {
+    padding: 8px;
+    background-color: #ED682B;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.update-name-button:hover {
+    background-color: #d55a20;
+}
+
+@media (max-width: 768px) {
+    .user-settings {
+        margin-top: 15px;
+    }
+    
+    .username-input {
+        padding: 10px;
+        font-size: 16px;
+    }
+    
+    .update-name-button {
+        padding: 10px;
+        font-size: 16px;
+    }
 } 

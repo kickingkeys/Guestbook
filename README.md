@@ -1,85 +1,82 @@
-# Interactive Canvas Application
+# Interactive Canvas Guestbook
 
-A modern web-based canvas application that allows users to create, edit, and collaborate on digital whiteboards.
+An interactive canvas web application with a dotted grid background where users can create, manipulate, and share content in real-time. The application allows adding sticky notes, drawing with different tools, capturing and adding Polaroid-style photos, and arranging images.
 
 ## Features
 
-- **Multiple Tools**: Drawing, Text, Sticky Notes, Images, Camera, Eraser, and Hand (pan) tools
-- **Responsive Design**: Works on both desktop and mobile devices
-- **Keyboard Shortcuts**: Quick access to tools and functions
-- **Canvas Navigation**: Pan and zoom functionality
-- **Modern UI**: Clean, intuitive interface with tooltips and visual feedback
-- **Camera Capture**: Take photos with your device camera and add them as Polaroid-style images
+- Canvas with dotted grid background
+- Pan and zoom navigation
+- Drawing tools
+- Sticky notes
+- Text elements
+- Image upload and manipulation
+- Camera capture with Polaroid effect
+- Real-time collaboration with Firebase
+- User presence tracking
+
+## Prerequisites
+
+- Node.js (v14 or higher) - only needed for running the development server
+- Modern web browser with JavaScript enabled
+
+## Installation
+
+1. Clone the repository:
+   ```
+   git clone <repository-url>
+   cd guestbook
+   ```
+
+2. Install development dependencies (for local server):
+   ```
+   npm install
+   ```
+
+## Firebase Setup
+
+1. Create a Firebase project at [https://console.firebase.google.com/](https://console.firebase.google.com/)
+2. Enable Firestore, Storage, and Authentication services
+3. Set up Firestore security rules
+4. Update the Firebase configuration in `src/js/firebase/FirebaseConfig.js` with your project's configuration
+
+## Running the Application
+
+Start the development server:
+```
+npm start
+```
+
+Then open your browser and navigate to `http://localhost:8080`.
 
 ## Project Structure
 
-The application follows a modular architecture:
+- `index.html`: Main HTML file
+- `src/css/styles.css`: CSS styles
+- `src/js/app.js`: Main application file
+- `src/js/canvas/`: Canvas-related classes
+- `src/js/elements/`: Canvas element classes
+- `src/js/tools/`: Tool implementations
+- `src/js/utils/`: Utility classes
+- `src/js/firebase/`: Firebase integration (using CDN)
 
-├── index.html              # Main HTML file
-├── src/
-│   ├── css/
-│   │   └── styles.css      # Application styles
-│   └── js/
-│       ├── app.js          # Main application logic
-│       ├── canvas/
-│       │   ├── CanvasManager.js  # Canvas rendering and management
-│       │   └── Viewport.js       # Pan and zoom functionality
-│       ├── tools/
-│       │   ├── Tool.js           # Base Tool class
-│       │   ├── ToolManager.js    # Tool management
-│       │   ├── DrawingTool.js    # Freehand drawing
-│       │   ├── EraserTool.js     # Erasing elements
-│       │   ├── HandTool.js       # Canvas panning
-│       │   ├── ImageTool.js      # Image upload and placement
-│       │   ├── CameraTool.js     # Camera capture and photo placement
-│       │   ├── SelectionTool.js  # Element selection and manipulation
-│       │   ├── StickyNoteTool.js # Sticky note creation
-│       │   └── TextTool.js       # Text creation and editing
-│       └── utils/
-│           ├── ModeManager.js    # Application mode management
-│           ├── CameraManager.js  # Camera access and management
-│           └── PolaroidFormatter.js # Photo styling utilities
+## Implementation Phases
 
-## Development Phases
-
-The project is being developed in phases:
-
-1. **Phase 1**: Basic canvas setup and rendering ✓
-2. **Phase 2**: Navigation features (pan and zoom) ✓
-3. **Phase 3**: Tool management and toolbar UI ✓
-4. **Phase 4**: Drawing and text tools ✓
-5. **Phase 5**: Sticky notes and selection ✓
-6. **Phase 6**: Eraser and additional tools ✓
-7. **Phase 7**: Image upload functionality ✓
-8. **Phase 8**: Camera capture & Polaroid effect (Current Phase)
-9. **Phase 9**: Performance optimization and saving functionality
-
-## Keyboard Shortcuts
-
-- **Ctrl+V**: Selection Tool
-- **Ctrl+H**: Hand Tool (Pan)
-- **Ctrl+P**: Drawing Tool
-- **Ctrl+T**: Text Tool
-- **Ctrl+N**: Sticky Note Tool
-- **Ctrl+I**: Image Tool
-- **Ctrl+C**: Camera Tool
-- **Ctrl+E**: Eraser Tool
-- **Space**: Temporarily activate Hand Tool while pressed
-
-## Camera Feature
-
-The camera tool allows you to:
-- Capture photos using your device's camera
-- Automatically apply a Polaroid-style frame to photos
-- Place the captured photos directly on the canvas
-- Resize and position photos just like regular images
-- Works on both desktop and mobile devices
-
-## Browser Compatibility
-
-The application is designed to work in modern browsers that support ES6+ JavaScript, modern CSS features, and the MediaDevices API for camera access. For optimal camera functionality, the application should be served over HTTPS.
+1. ✅ Canvas Setup & Grid Pattern
+2. ✅ Navigation System
+3. ✅ Toolbar & Tool Selection
+4. ✅ Drawing Tool Implementation
+5. ✅ Sticky Note Implementation
+6. ✅ Selection & Transformation
+7. ✅ Image Upload & Handling
+8. ✅ Camera Capture & Polaroid Effect
+9. ✅ Firebase Setup & Integration
+10. ⬜ Element Synchronization
+11. ⬜ Image & Media Storage
+12. ⬜ User Presence & Collaboration Features
+13. ⬜ Performance & Reliability Enhancements
+14. ⬜ Moderation & Administration
+15. ⬜ Polish & User Experience
 
 ## License
 
-This project is for educational purposes.
-
+MIT 
