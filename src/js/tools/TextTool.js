@@ -36,6 +36,9 @@ export class TextTool extends Tool {
         // Bind event handlers
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleKeyPress = this.handleKeyPress.bind(this);
+        
+        // Create hidden input field for mobile keyboard
+        this.createHiddenInputField();
     }
     
     /**
@@ -56,6 +59,11 @@ export class TextTool extends Tool {
         super.deactivate();
         this.finishEditing();
         this.hideMobileIndicator();
+        
+        // Hide and blur the input field
+        if (this.inputField) {
+            this.inputField.blur();
+        }
     }
     
     /**
@@ -89,6 +97,11 @@ export class TextTool extends Tool {
             // Remove event listeners
             document.removeEventListener('keydown', this.handleKeyDown);
             document.removeEventListener('keypress', this.handleKeyPress);
+            
+            // Blur the input field to hide the mobile keyboard
+            if (this.inputField) {
+                this.inputField.blur();
+            }
             
             // Request a render update
             this.canvasManager.requestRender();
@@ -136,6 +149,13 @@ export class TextTool extends Tool {
         document.addEventListener('keydown', this.handleKeyDown);
         document.addEventListener('keypress', this.handleKeyPress);
         
+        // Focus the hidden input field to trigger mobile keyboard
+        if (this.inputField) {
+            setTimeout(() => {
+                this.inputField.focus();
+            }, 100);
+        }
+        
         // Request a render update
         this.canvasManager.requestRender();
         
@@ -158,6 +178,13 @@ export class TextTool extends Tool {
         // Add event listeners for keyboard input
         document.addEventListener('keydown', this.handleKeyDown);
         document.addEventListener('keypress', this.handleKeyPress);
+        
+        // Focus the hidden input field to trigger mobile keyboard
+        if (this.inputField) {
+            setTimeout(() => {
+                this.inputField.focus();
+            }, 100);
+        }
         
         // Request a render update
         this.canvasManager.requestRender();
@@ -192,6 +219,11 @@ export class TextTool extends Tool {
                         text: this.activeTextElement.text + '\n' 
                     });
                     this.canvasManager.requestRender();
+                    
+                    // Clear the input field to prevent duplicate input
+                    if (this.inputField) {
+                        this.inputField.value = '';
+                    }
                 }
                 break;
                 
@@ -203,6 +235,11 @@ export class TextTool extends Tool {
                         text: this.activeTextElement.text.slice(0, -1) 
                     });
                     this.canvasManager.requestRender();
+                    
+                    // Clear the input field to prevent issues
+                    if (this.inputField) {
+                        this.inputField.value = '';
+                    }
                 }
                 break;
         }
@@ -330,12 +367,30 @@ export class TextTool extends Tool {
         if (element && element.type === 'text') {
             // Edit existing text element
             this.startEditing(element);
+            
+            // Show mobile indicator at touch position
+            this.showMobileTextIndicator(canvasPoint.x, canvasPoint.y);
         } else {
             // Show mobile indicator at touch position
             this.showMobileTextIndicator(canvasPoint.x, canvasPoint.y);
             
             // Create a new text element
             this.createTextElement(canvasPoint.x, canvasPoint.y);
+        }
+        
+        // Ensure the input field is focused after a short delay
+        // This helps ensure the keyboard appears on various mobile devices
+        if (this.inputField) {
+            setTimeout(() => {
+                this.inputField.focus();
+                
+                // On iOS, we may need an additional focus attempt
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+                    setTimeout(() => {
+                        this.inputField.focus();
+                    }, 300);
+                }
+            }, 100);
         }
     }
     
@@ -505,5 +560,53 @@ export class TextTool extends Tool {
             italic: this.defaultItalic,
             underline: this.defaultUnderline
         };
+    }
+    
+    /**
+     * Create a hidden input field for triggering the mobile keyboard
+     */
+    createHiddenInputField() {
+        // Check if the input already exists
+        let inputField = document.getElementById('text-tool-input');
+        
+        if (!inputField) {
+            // Create the input field
+            inputField = document.createElement('input');
+            inputField.id = 'text-tool-input';
+            inputField.type = 'text';
+            inputField.autocomplete = 'off';
+            inputField.autocorrect = 'off';
+            inputField.autocapitalize = 'off';
+            inputField.spellcheck = false;
+            
+            // Style the input field to be invisible but accessible
+            inputField.style.position = 'fixed';
+            inputField.style.opacity = '0';
+            inputField.style.pointerEvents = 'none';
+            inputField.style.zIndex = '-1';
+            inputField.style.width = '1px';
+            inputField.style.height = '1px';
+            inputField.style.bottom = '0';
+            inputField.style.left = '0';
+            
+            // Add input event listener
+            inputField.addEventListener('input', (e) => {
+                if (this.activeTextElement && e.data) {
+                    // Add the input text to the active text element
+                    this.activeTextElement.update({ 
+                        text: this.activeTextElement.text + e.data 
+                    });
+                    // Clear the input field
+                    inputField.value = '';
+                    // Request a render update
+                    this.canvasManager.requestRender();
+                }
+            });
+            
+            // Add the input field to the document
+            document.body.appendChild(inputField);
+        }
+        
+        this.inputField = inputField;
     }
 } 

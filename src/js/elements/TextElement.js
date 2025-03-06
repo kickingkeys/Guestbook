@@ -117,20 +117,31 @@ export class TextElement extends CanvasElement {
     
     /**
      * Check if a point is inside the text element
-     * @param {number} x - The x coordinate
-     * @param {number} y - The y coordinate
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
      * @returns {boolean} - True if the point is inside the text element, false otherwise
      */
     containsPoint(x, y) {
         // Get the bounding box
         const bbox = this.getBoundingBox();
         
-        // Check if the point is inside the bounding box
+        // Add a hit tolerance that scales inversely with zoom level
+        // This makes it easier to select elements when zoomed out
+        let hitTolerance = 8; // Base tolerance in pixels
+        
+        // If we can access the viewport scale through the canvas manager
+        if (window.canvasManager && window.canvasManager.viewport) {
+            // Scale the tolerance inversely with the zoom level
+            // This makes the hit area larger when zoomed out and smaller when zoomed in
+            hitTolerance = hitTolerance / window.canvasManager.viewport.scale;
+        }
+        
+        // Check if the point is inside the expanded bounding box
         return (
-            x >= bbox.x && 
-            x <= bbox.x + bbox.width && 
-            y >= bbox.y && 
-            y <= bbox.y + bbox.height
+            x >= bbox.x - hitTolerance && 
+            x <= bbox.x + bbox.width + hitTolerance && 
+            y >= bbox.y - hitTolerance && 
+            y <= bbox.y + bbox.height + hitTolerance
         );
     }
     

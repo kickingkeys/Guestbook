@@ -42,6 +42,10 @@ export class CanvasManager {
         
         // Element change listeners
         this.elementChangeListeners = [];
+        
+        // Make the canvas manager available globally for hit detection
+        // This allows elements to access the viewport scale in their containsPoint methods
+        window.canvasManager = this;
     }
     
     /**
@@ -431,6 +435,10 @@ export class CanvasManager {
             canvasX = canvasPoint.x;
             canvasY = canvasPoint.y;
         }
+        
+        // Make the canvas manager available globally for hit detection
+        // This allows elements to access the viewport scale in their containsPoint methods
+        window.canvasManager = this;
         
         // Check elements in reverse order (top to bottom)
         const sortedElements = [...this.elements].sort((a, b) => b.zIndex - a.zIndex);

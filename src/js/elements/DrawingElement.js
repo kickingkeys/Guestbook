@@ -66,17 +66,26 @@ export class DrawingElement extends CanvasElement {
     
     /**
      * Check if a point is inside the drawing
-     * @param {number} x - The x coordinate
-     * @param {number} y - The y coordinate
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
      * @returns {boolean} - True if the point is inside the drawing, false otherwise
      */
     containsPoint(x, y) {
         // Get the bounding box (this will recalculate if needed)
         const bbox = this.getBoundingBox();
         
-        // Check if the point is inside the bounding box
-        if (x < bbox.x || x > bbox.x + bbox.width || 
-            y < bbox.y || y > bbox.y + bbox.height) {
+        // Add a hit tolerance that scales inversely with zoom level
+        let hitTolerance = 10; // Base tolerance in pixels
+        
+        // If we can access the viewport scale through the canvas manager
+        if (window.canvasManager && window.canvasManager.viewport) {
+            // Scale the tolerance inversely with the zoom level
+            hitTolerance = hitTolerance / window.canvasManager.viewport.scale;
+        }
+        
+        // Check if the point is inside the expanded bounding box
+        if (x < bbox.x - hitTolerance || x > bbox.x + bbox.width + hitTolerance || 
+            y < bbox.y - hitTolerance || y > bbox.y + bbox.height + hitTolerance) {
             return false;
         }
         
@@ -95,8 +104,10 @@ export class DrawingElement extends CanvasElement {
         const sx = rx / this.scaleX;
         const sy = ry / this.scaleY;
         
-        // Check if the point is near any line segment
-        const threshold = Math.max(5, this.width * 2); // Adjust hit area based on line width
+        // Calculate threshold based on line width and zoom level
+        // Adjust hit area based on line width and zoom level
+        const baseThreshold = Math.max(5, this.width * 2);
+        const threshold = baseThreshold + hitTolerance;
         
         for (let i = 1; i < this.points.length; i++) {
             const p1 = this.points[i - 1];

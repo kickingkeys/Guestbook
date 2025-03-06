@@ -286,8 +286,8 @@ export class ImageElement extends CanvasElement {
     
     /**
      * Check if a point is inside the image
-     * @param {number} x - The x coordinate
-     * @param {number} y - The y coordinate
+     * @param {number} x - X coordinate
+     * @param {number} y - Y coordinate
      * @returns {boolean} - True if the point is inside the image, false otherwise
      */
     containsPoint(x, y) {
@@ -305,12 +305,22 @@ export class ImageElement extends CanvasElement {
         const sx = rx / this.scaleX;
         const sy = ry / this.scaleY;
         
-        // Check if the point is inside the image
+        // Add a hit tolerance that scales inversely with zoom level
+        // This makes it easier to select elements when zoomed out
+        let hitTolerance = 10; // Base tolerance in pixels
+        
+        // If we can access the viewport scale through the canvas manager
+        if (window.canvasManager && window.canvasManager.viewport) {
+            // Scale the tolerance inversely with the zoom level
+            hitTolerance = hitTolerance / window.canvasManager.viewport.scale;
+        }
+        
+        // Check if the point is inside the image with added tolerance
         return (
-            sx >= -this.width / 2 &&
-            sx <= this.width / 2 &&
-            sy >= -this.height / 2 &&
-            sy <= this.height / 2
+            sx >= -this.width / 2 - hitTolerance &&
+            sx <= this.width / 2 + hitTolerance &&
+            sy >= -this.height / 2 - hitTolerance &&
+            sy <= this.height / 2 + hitTolerance
         );
     }
     
