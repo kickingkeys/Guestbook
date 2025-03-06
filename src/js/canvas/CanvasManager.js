@@ -453,12 +453,24 @@ export class CanvasManager {
         }
         
         // Define element type priority (sticky notes and text should be easier to select than drawings)
-        const typePriority = {
+        // At low zoom levels, increase the priority difference to make selection more predictable
+        let typePriority = {
             'sticky-note': 3,
             'text': 2,
             'image': 1,
             'drawing': 0
         };
+        
+        // At very low zoom levels, increase the priority difference to make selection more predictable
+        if (this.viewport && this.viewport.scale <= 0.5) {
+            // Increase the priority gap between different element types at low zoom levels
+            typePriority = {
+                'sticky-note': 6,
+                'text': 4,
+                'image': 2,
+                'drawing': 0
+            };
+        }
         
         // Find all elements at this position
         const elementsAtPosition = sortedElements.filter(element => 

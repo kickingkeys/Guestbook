@@ -79,8 +79,20 @@ export class DrawingElement extends CanvasElement {
         
         // If we can access the viewport scale through the canvas manager
         if (window.canvasManager && window.canvasManager.viewport) {
+            const scale = window.canvasManager.viewport.scale;
+            
             // Scale the tolerance inversely with the zoom level
-            hitTolerance = hitTolerance / window.canvasManager.viewport.scale;
+            hitTolerance = hitTolerance / scale;
+            
+            // Add extra tolerance at very low zoom levels
+            if (scale <= 0.5) {
+                // Progressively increase tolerance as zoom decreases
+                const zoomFactor = Math.max(0.1, scale) / 0.5; // 1.0 at scale=0.5, increases as scale decreases
+                hitTolerance = hitTolerance * (2.0 / zoomFactor);
+            }
+            
+            // Cap the maximum tolerance to prevent excessive hit areas
+            hitTolerance = Math.min(hitTolerance, 100);
         }
         
         // Check if the point is inside the expanded bounding box

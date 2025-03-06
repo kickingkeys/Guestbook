@@ -50,6 +50,26 @@ export class TextTool extends Tool {
         if (this.canvasManager && this.canvasManager.canvas) {
             this.canvasManager.canvas.style.cursor = this.config.cursor;
         }
+        
+        // Ensure the input field is ready
+        if (this.inputField) {
+            // Reset the input field
+            this.inputField.value = '';
+            
+            // Make the input field visible
+            this.inputField.style.display = 'block';
+            
+            // On mobile, show a hint about the input field
+            if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                // Show a brief message
+                this.showKeyboardMessage();
+                
+                // Hide the message after a few seconds
+                setTimeout(() => {
+                    this.hideKeyboardMessage();
+                }, 3000);
+            }
+        }
     }
     
     /**
@@ -63,6 +83,8 @@ export class TextTool extends Tool {
         // Hide and blur the input field
         if (this.inputField) {
             this.inputField.blur();
+            this.inputField.style.display = 'none';
+            this.hideKeyboardMessage();
         }
     }
     
@@ -400,6 +422,15 @@ export class TextTool extends Tool {
             // Clear any existing value
             this.inputField.value = '';
             
+            // Make the input field more visible temporarily to help trigger keyboard
+            const originalOpacity = this.inputField.style.opacity;
+            this.inputField.style.opacity = '0.8';
+            this.inputField.style.backgroundColor = 'rgba(247, 247, 247, 0.9)';
+            this.inputField.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.2)';
+            
+            // Show a message to the user
+            this.showKeyboardMessage();
+            
             // Use multiple focus attempts with increasing delays
             // This helps ensure the keyboard appears on various mobile devices
             const focusAttempts = [50, 200, 500, 1000];
@@ -412,6 +443,16 @@ export class TextTool extends Tool {
                     // On iOS, a click can help trigger the keyboard
                     if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
                         this.inputField.click();
+                    }
+                    
+                    // If this is the last attempt, restore original opacity
+                    if (delay === focusAttempts[focusAttempts.length - 1]) {
+                        setTimeout(() => {
+                            this.inputField.style.opacity = originalOpacity;
+                            this.inputField.style.backgroundColor = 'rgba(0,0,0,0.05)';
+                            this.inputField.style.boxShadow = 'none';
+                            this.hideKeyboardMessage();
+                        }, 2000);
                     }
                 }, delay);
             });
@@ -603,15 +644,21 @@ export class TextTool extends Tool {
             inputField.autocapitalize = 'off';
             inputField.spellcheck = false;
             
-            // Style the input field to be invisible but accessible
+            // Style the input field to be visible but unobtrusive
+            // Making it slightly visible helps ensure keyboard appears on mobile
             inputField.style.position = 'fixed';
-            inputField.style.opacity = '0.01'; // Not completely invisible to ensure keyboard appears
-            inputField.style.pointerEvents = 'none';
+            inputField.style.opacity = '0.1'; // Slightly visible to ensure keyboard appears
+            inputField.style.backgroundColor = 'rgba(0,0,0,0.05)';
+            inputField.style.border = '1px solid rgba(0,0,0,0.1)';
+            inputField.style.borderRadius = '3px';
+            inputField.style.padding = '4px';
+            inputField.style.pointerEvents = 'auto'; // Allow interaction
             inputField.style.zIndex = '9999';
-            inputField.style.width = '1px';
-            inputField.style.height = '1px';
-            inputField.style.bottom = '0';
-            inputField.style.left = '0';
+            inputField.style.width = '40px';
+            inputField.style.height = '30px';
+            inputField.style.bottom = '10px';
+            inputField.style.left = '10px';
+            inputField.style.fontSize = '16px'; // iOS requires 16px or larger to avoid zoom
             
             // Add input event listener
             inputField.addEventListener('input', (e) => {
@@ -627,10 +674,67 @@ export class TextTool extends Tool {
                 }
             });
             
+            // Add focus event listener to ensure we're in editing mode
+            inputField.addEventListener('focus', () => {
+                console.log('TextTool: Input field focused');
+                if (this.activeTextElement) {
+                    // Ensure the element is in editing mode
+                    this.activeTextElement.setEditing(true);
+                    this.canvasManager.requestRender();
+                }
+            });
+            
             // Add the input field to the document
             document.body.appendChild(inputField);
         }
         
         this.inputField = inputField;
+    }
+    
+    /**
+     * Show a message to help users understand they need to tap the input field
+     */
+    showKeyboardMessage() {
+        // Remove any existing message
+        this.hideKeyboardMessage();
+        
+        // Create message element
+        const message = document.createElement('div');
+        message.id = 'keyboard-message';
+        message.textContent = 'Tap here to type';
+        message.style.position = 'fixed';
+        message.style.bottom = '45px';
+        message.style.left = '10px';
+        message.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        message.style.color = 'white';
+        message.style.padding = '5px 10px';
+        message.style.borderRadius = '5px';
+        message.style.fontSize = '14px';
+        message.style.zIndex = '10000';
+        message.style.pointerEvents = 'none';
+        
+        // Add arrow pointing to input
+        const arrow = document.createElement('div');
+        arrow.style.position = 'absolute';
+        arrow.style.bottom = '-5px';
+        arrow.style.left = '15px';
+        arrow.style.width = '0';
+        arrow.style.height = '0';
+        arrow.style.borderLeft = '5px solid transparent';
+        arrow.style.borderRight = '5px solid transparent';
+        arrow.style.borderTop = '5px solid rgba(0, 0, 0, 0.7)';
+        
+        message.appendChild(arrow);
+        document.body.appendChild(message);
+    }
+    
+    /**
+     * Hide the keyboard message
+     */
+    hideKeyboardMessage() {
+        const message = document.getElementById('keyboard-message');
+        if (message) {
+            message.remove();
+        }
     }
 } 
