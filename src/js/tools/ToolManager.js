@@ -35,7 +35,7 @@ export class ToolManager {
         };
         
         // Define disabled tools
-        this.disabledTools = ['hand', 'drawing', 'eraser'];
+        this.disabledTools = ['hand', 'drawing'];
         
         // Set default tool to selection
         this.setTool('selection');
@@ -206,8 +206,8 @@ export class ToolManager {
                     toolName = 'image';
                     break;
                 case 'e':
-                    // Disable eraser tool
-                    // toolName = 'eraser';
+                    // Enable eraser tool
+                    toolName = 'eraser';
                     break;
                 case 'c':
                     toolName = 'camera';

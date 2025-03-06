@@ -82,9 +82,9 @@ class App {
         // Set default mode
         this.modeManager.setMode('navigation');
         
-        // Set default tool (sticky for mobile, drawing for desktop)
+        // Set default tool to selection for both mobile and desktop
         const isMobile = window.innerWidth <= 768;
-        this.selectTool(isMobile ? 'sticky' : 'selection'); // Changed from 'drawing' to 'selection'
+        this.selectTool('selection'); // Always use selection tool as default
         
         // Set up canvas click handler for direct selection
         this.setupDirectSelection();
@@ -110,7 +110,7 @@ class App {
         this.updateToolbarPosition();
         
         // Ensure the current tool is not one of the disabled tools
-        const disabledTools = ['hand', 'drawing', 'eraser'];
+        const disabledTools = ['hand', 'drawing'];
         const currentTool = this.toolManager.getCurrentTool();
         
         if (currentTool) {
@@ -198,6 +198,22 @@ class App {
         window.addEventListener('keydown', this.handleKeyDown.bind(this));
         window.addEventListener('keyup', this.handleKeyUp.bind(this));
         
+        // Add visualViewport resize listener for mobile keyboard
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('resize', () => {
+                // Handle mobile keyboard resize issues
+                this.handleMobileKeyboardResize();
+            });
+            
+            // Also listen for scroll events on visualViewport
+            window.visualViewport.addEventListener('scroll', () => {
+                // Ensure we're at the top of the page
+                if (window.scrollY !== 0) {
+                    window.scrollTo(0, 0);
+                }
+            });
+        }
+        
         // Tool selection events
         const toolButtons = document.querySelectorAll('.tool-button');
         toolButtons.forEach(button => {
@@ -209,8 +225,8 @@ class App {
                 return;
             }
             
-            // Disable the eraser and drawing tools
-            if (toolName === 'eraser' || toolName === 'draw') {
+            // Disable the drawing tool only (eraser is now enabled)
+            if (toolName === 'draw') {
                 button.classList.add('disabled');
                 
                 // Update tooltip to indicate the tool is disabled
@@ -269,6 +285,9 @@ class App {
             
             // Update toolbar position for mobile
             this.updateToolbarPosition();
+            
+            // Handle mobile keyboard resize issues
+            this.handleMobileKeyboardResize();
         });
         
         // Listen for mode changes
@@ -486,8 +505,8 @@ class App {
      * @param {TouchEvent} e - The touch event
      */
     handleTouchStart(e) {
-        // Check if we're in navigation mode or using a tool
-        if (this.isSpacebarDown || this.modeManager.getMode() === 'navigation') {
+        // Check if we're in navigation mode, using a tool, or using two fingers (always allow panning with two fingers)
+        if (this.isSpacebarDown || this.modeManager.getMode() === 'navigation' || e.touches.length === 2) {
             e.preventDefault();
             
             if (e.touches.length === 1) {
@@ -499,6 +518,10 @@ class App {
                 
                 this.isPanning = true;
                 this.viewport.startPan(touchX, touchY);
+                
+                // Store initial touch position for panning
+                this.lastTouchX = touch.clientX;
+                this.lastTouchY = touch.clientY;
                 
                 // Update cursor
                 this.updateCursor(this.modeManager.getMode());
@@ -517,6 +540,10 @@ class App {
             const rect = this.canvasManager.canvas.getBoundingClientRect();
             const touchX = touch.clientX - rect.left;
             const touchY = touch.clientY - rect.top;
+            
+            // Store initial touch position for potential panning
+            this.lastTouchX = touch.clientX;
+            this.lastTouchY = touch.clientY;
             
             this.toolManager.onTouchStart(touchX, touchY, e);
         }
@@ -538,42 +565,6 @@ class App {
         // Update user presence with throttled cursor position
         if (this.userPresence && !this.isPanning) {
             this.userPresence.updateCursorPosition(x, y);
-        }
-        
-        // Check if touch is over an element for attribution (long press)
-        if (!this.isPanning && !this.isDrawing && e.touches.length === 1) {
-            const element = this.canvasManager.getElementAtPosition(x, y);
-            
-            if (element) {
-                // If hovering over a different element, clear previous timeout
-                if (this.hoveredElement !== element) {
-                    if (this.hoverTimeout) {
-                        clearTimeout(this.hoverTimeout);
-                    }
-                    
-                    // Set new hovered element
-                    this.hoveredElement = element;
-                    
-                    // Show attribution after a longer delay for mobile (800ms)
-                    this.hoverTimeout = setTimeout(() => {
-                        this.elementAttribution.showAttribution(element, x, y);
-                    }, 800);
-                }
-            } else {
-                // If not hovering over any element, clear timeout and hide attribution
-                if (this.hoverTimeout) {
-                    clearTimeout(this.hoverTimeout);
-                    this.hoverTimeout = null;
-                }
-                
-                if (this.hoveredElement) {
-                    // Hide attribution
-                    this.elementAttribution.hideAttribution();
-                    
-                    // Reset hovered element
-                    this.hoveredElement = null;
-                }
-            }
         }
         
         // Handle multi-touch gestures
@@ -627,10 +618,77 @@ class App {
             
             this.lastTouchX = touch.clientX;
             this.lastTouchY = touch.clientY;
+        } else if (e.touches.length === 1) {
+            // Check if we should start panning with selection tool
+            const currentTool = this.toolManager.getCurrentTool();
+            const isSelectionTool = currentTool && currentTool.config && currentTool.config.name === 'selection';
+            
+            // Check if touch has moved significantly (to distinguish from a tap)
+            const touchMoveDistance = Math.sqrt(
+                Math.pow(touch.clientX - this.lastTouchX, 2) + 
+                Math.pow(touch.clientY - this.lastTouchY, 2)
+            );
+            
+            // If using selection tool and touch has moved significantly, start panning
+            if (isSelectionTool && touchMoveDistance > 10 && !this.isDrawing) {
+                // Check if we're not interacting with an element
+                const element = this.canvasManager.getElementAtPosition(touch.clientX, touch.clientY);
+                if (!element) {
+                    this.isPanning = true;
+                    this.viewport.startPan(touch.clientX, touch.clientY);
+                    
+                    // Hide attribution if showing
+                    if (this.hoveredElement) {
+                        this.elementAttribution.hideAttribution();
+                        this.hoveredElement = null;
+                        
+                        if (this.hoverTimeout) {
+                            clearTimeout(this.hoverTimeout);
+                            this.hoverTimeout = null;
+                        }
+                    }
+                }
+            }
+            
+            // Check if touch is over an element for attribution (long press)
+            if (!this.isPanning && !this.isDrawing) {
+                const element = this.canvasManager.getElementAtPosition(x, y);
+                
+                if (element) {
+                    // If hovering over a different element, clear previous timeout
+                    if (this.hoveredElement !== element) {
+                        if (this.hoverTimeout) {
+                            clearTimeout(this.hoverTimeout);
+                        }
+                        
+                        // Set new hovered element
+                        this.hoveredElement = element;
+                        
+                        // Show attribution after a longer delay for mobile (800ms)
+                        this.hoverTimeout = setTimeout(() => {
+                            this.elementAttribution.showAttribution(element, x, y);
+                        }, 800);
+                    }
+                } else {
+                    // If not hovering over any element, clear timeout and hide attribution
+                    if (this.hoverTimeout) {
+                        clearTimeout(this.hoverTimeout);
+                        this.hoverTimeout = null;
+                    }
+                    
+                    if (this.hoveredElement) {
+                        // Hide attribution
+                        this.elementAttribution.hideAttribution();
+                        
+                        // Reset hovered element
+                        this.hoveredElement = null;
+                    }
+                }
+            }
         }
         
         // If a tool is active, delegate to tool manager
-        if (this.toolManager.getCurrentTool()) {
+        if (this.toolManager.getCurrentTool() && !this.isPanning) {
             this.toolManager.onTouchMove(x, y, e);
         }
     }
@@ -1313,6 +1371,68 @@ class App {
             console.error('Error deleting element:', error);
             this.errorToast.show('Failed to delete the element. Please try again.');
             this.savingIndicator.showError('Error deleting');
+        }
+    }
+    
+    /**
+     * Handle mobile keyboard appearance and disappearance
+     * This fixes the issue where the screen doesn't restore to its original size
+     * after the keyboard is dismissed on mobile devices
+     */
+    handleMobileKeyboardResize() {
+        // Check if we're on a mobile device
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (!isMobile) return;
+        
+        // Check if we're on iOS
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+        
+        // Get the visual viewport height (accounts for keyboard)
+        const visualViewportHeight = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+        const windowHeight = window.innerHeight;
+        
+        // If the visual viewport is significantly smaller than the window height,
+        // the keyboard is likely open
+        const isKeyboardOpen = visualViewportHeight < windowHeight * 0.8;
+        
+        console.log(`Mobile keyboard state: ${isKeyboardOpen ? 'open' : 'closed'}, ` +
+                   `visualViewport: ${visualViewportHeight}, window: ${windowHeight}, iOS: ${isIOS}`);
+        
+        if (!isKeyboardOpen) {
+            // Force a full refresh of the viewport when keyboard is closed
+            // This is a workaround for iOS and some Android devices
+            setTimeout(() => {
+                // Scroll to top to ensure proper layout
+                window.scrollTo(0, 0);
+                
+                // iOS-specific fixes
+                if (isIOS) {
+                    // On iOS, we need to force the body to full height
+                    document.body.style.height = '100%';
+                    document.documentElement.style.height = '100%';
+                    
+                    // Force a reflow
+                    document.body.offsetHeight;
+                }
+                
+                // Force redraw by triggering a small resize
+                document.body.style.height = `${windowHeight + 1}px`;
+                setTimeout(() => {
+                    document.body.style.height = `${windowHeight}px`;
+                    
+                    // Resize canvas again after a short delay
+                    setTimeout(() => {
+                        this.canvasManager.handleResize();
+                        this.updateToolbarPosition();
+                        console.log('Forced viewport refresh after keyboard closed');
+                    }, 50);
+                }, 0);
+            }, isIOS ? 500 : 300); // Longer delay for iOS
+        } else if (isIOS) {
+            // When keyboard opens on iOS, ensure content is visible
+            setTimeout(() => {
+                window.scrollTo(0, 0);
+            }, 100);
         }
     }
 }
