@@ -505,23 +505,23 @@ class App {
      * @param {TouchEvent} e - The touch event
      */
     handleTouchStart(e) {
+        // Get the primary touch
+        const touch = e.touches[0];
+        const touchX = touch.clientX;
+        const touchY = touch.clientY;
+        
+        // Store initial touch position for potential panning
+        this.lastTouchX = touchX;
+        this.lastTouchY = touchY;
+        
         // Check if we're in navigation mode, using a tool, or using two fingers (always allow panning with two fingers)
         if (this.isSpacebarDown || this.modeManager.getMode() === 'navigation' || e.touches.length === 2) {
             e.preventDefault();
             
             if (e.touches.length === 1) {
                 // Single touch - start panning
-                const touch = e.touches[0];
-                const rect = this.canvasManager.canvas.getBoundingClientRect();
-                const touchX = touch.clientX - rect.left;
-                const touchY = touch.clientY - rect.top;
-                
                 this.isPanning = true;
                 this.viewport.startPan(touchX, touchY);
-                
-                // Store initial touch position for panning
-                this.lastTouchX = touch.clientX;
-                this.lastTouchY = touch.clientY;
                 
                 // Update cursor
                 this.updateCursor(this.modeManager.getMode());
@@ -535,17 +535,20 @@ class App {
                 this.updateCursor(this.modeManager.getMode());
             }
         } else {
-            // Pass the event to the current tool
-            const touch = e.touches[0];
-            const rect = this.canvasManager.canvas.getBoundingClientRect();
-            const touchX = touch.clientX - rect.left;
-            const touchY = touch.clientY - rect.top;
+            // Check if the touch is on an element
+            const element = this.canvasManager.getElementAtPosition(touchX, touchY);
             
-            // Store initial touch position for potential panning
-            this.lastTouchX = touch.clientX;
-            this.lastTouchY = touch.clientY;
+            // If not on an element and using selection tool, prepare for potential panning
+            const currentTool = this.toolManager.getCurrentTool();
+            const isSelectionTool = currentTool && currentTool.config && currentTool.config.name === 'selection';
             
-            this.toolManager.onTouchStart(touchX, touchY, e);
+            if (!element && isSelectionTool) {
+                // Set a flag to indicate we might start panning
+                this.potentialPan = true;
+            } else {
+                // Pass the event to the current tool
+                this.toolManager.onTouchStart(touchX, touchY, e);
+            }
         }
     }
     
@@ -629,29 +632,29 @@ class App {
                 Math.pow(touch.clientY - this.lastTouchY, 2)
             );
             
-            // If using selection tool and touch has moved significantly, start panning
-            if (isSelectionTool && touchMoveDistance > 10 && !this.isDrawing) {
-                // Check if we're not interacting with an element
-                const element = this.canvasManager.getElementAtPosition(touch.clientX, touch.clientY);
-                if (!element) {
-                    this.isPanning = true;
-                    this.viewport.startPan(touch.clientX, touch.clientY);
+            // If we have a potential pan or using selection tool and touch has moved, start panning
+            if ((this.potentialPan || isSelectionTool) && touchMoveDistance > 5 && !this.isDrawing) {
+                // Start panning
+                this.isPanning = true;
+                this.potentialPan = false;
+                this.viewport.startPan(touch.clientX, touch.clientY);
+                
+                // Hide attribution if showing
+                if (this.hoveredElement) {
+                    this.elementAttribution.hideAttribution();
+                    this.hoveredElement = null;
                     
-                    // Hide attribution if showing
-                    if (this.hoveredElement) {
-                        this.elementAttribution.hideAttribution();
-                        this.hoveredElement = null;
-                        
-                        if (this.hoverTimeout) {
-                            clearTimeout(this.hoverTimeout);
-                            this.hoverTimeout = null;
-                        }
+                    if (this.hoverTimeout) {
+                        clearTimeout(this.hoverTimeout);
+                        this.hoverTimeout = null;
                     }
                 }
-            }
-            
-            // Check if touch is over an element for attribution (long press)
-            if (!this.isPanning && !this.isDrawing) {
+                
+                // Update last touch position
+                this.lastTouchX = touch.clientX;
+                this.lastTouchY = touch.clientY;
+            } else if (!this.isPanning && !this.isDrawing) {
+                // Check if touch is over an element for attribution (long press)
                 const element = this.canvasManager.getElementAtPosition(x, y);
                 
                 if (element) {
@@ -705,6 +708,9 @@ class App {
         if (this.isPanning) {
             this.isPanning = false;
         }
+        
+        // Reset potential pan flag
+        this.potentialPan = false;
         
         // Reset pinch zoom tracking
         this.previousTouchDistance = null;

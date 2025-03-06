@@ -75,7 +75,7 @@ export class DrawingElement extends CanvasElement {
         const bbox = this.getBoundingBox();
         
         // Add a hit tolerance that scales inversely with zoom level
-        let hitTolerance = 10; // Base tolerance in pixels
+        let hitTolerance = 15; // Base tolerance in pixels
         
         // If we can access the viewport scale through the canvas manager
         if (window.canvasManager && window.canvasManager.viewport) {

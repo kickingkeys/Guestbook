@@ -19,7 +19,7 @@ export class TextTool extends Tool {
         
         this.canvasManager = canvasManager;
         this.activeTextElement = null;
-        this.defaultFontSize = 16;
+        this.defaultFontSize = 24;
         this.defaultFontFamily = 'Arial, sans-serif';
         this.defaultTextColor = '#000000';
         this.defaultAlign = 'left';
@@ -101,12 +101,10 @@ export class TextTool extends Tool {
             // Blur the input field to hide the mobile keyboard
             if (this.inputField) {
                 this.inputField.blur();
+                this.inputField.value = '';
             }
             
-            // Request a render update
-            this.canvasManager.requestRender();
-            
-            // Clear the active text element
+            // Clear active text element
             this.activeTextElement = null;
         }
     }
@@ -151,8 +149,17 @@ export class TextTool extends Tool {
         
         // Focus the hidden input field to trigger mobile keyboard
         if (this.inputField) {
+            // Use a timeout to ensure the focus happens after the touch event is processed
             setTimeout(() => {
                 this.inputField.focus();
+                
+                // On iOS, we may need an additional focus attempt
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+                    setTimeout(() => {
+                        this.inputField.focus();
+                        this.inputField.click(); // Additional click can help on iOS
+                    }, 300);
+                }
             }, 100);
         }
         
@@ -181,8 +188,17 @@ export class TextTool extends Tool {
         
         // Focus the hidden input field to trigger mobile keyboard
         if (this.inputField) {
+            // Use a timeout to ensure the focus happens after the touch event is processed
             setTimeout(() => {
                 this.inputField.focus();
+                
+                // On iOS, we may need an additional focus attempt
+                if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+                    setTimeout(() => {
+                        this.inputField.focus();
+                        this.inputField.click(); // Additional click can help on iOS
+                    }, 300);
+                }
             }, 100);
         }
         
@@ -381,16 +397,24 @@ export class TextTool extends Tool {
         // Ensure the input field is focused after a short delay
         // This helps ensure the keyboard appears on various mobile devices
         if (this.inputField) {
-            setTimeout(() => {
-                this.inputField.focus();
-                
-                // On iOS, we may need an additional focus attempt
-                if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
-                    setTimeout(() => {
-                        this.inputField.focus();
-                    }, 300);
-                }
-            }, 100);
+            // Clear any existing value
+            this.inputField.value = '';
+            
+            // Use multiple focus attempts with increasing delays
+            // This helps ensure the keyboard appears on various mobile devices
+            const focusAttempts = [50, 200, 500, 1000];
+            
+            focusAttempts.forEach(delay => {
+                setTimeout(() => {
+                    console.log(`TextTool: Attempting to focus input field after ${delay}ms`);
+                    this.inputField.focus();
+                    
+                    // On iOS, a click can help trigger the keyboard
+                    if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream) {
+                        this.inputField.click();
+                    }
+                }, delay);
+            });
         }
     }
     
@@ -581,9 +605,9 @@ export class TextTool extends Tool {
             
             // Style the input field to be invisible but accessible
             inputField.style.position = 'fixed';
-            inputField.style.opacity = '0';
+            inputField.style.opacity = '0.01'; // Not completely invisible to ensure keyboard appears
             inputField.style.pointerEvents = 'none';
-            inputField.style.zIndex = '-1';
+            inputField.style.zIndex = '9999';
             inputField.style.width = '1px';
             inputField.style.height = '1px';
             inputField.style.bottom = '0';

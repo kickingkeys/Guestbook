@@ -307,7 +307,7 @@ export class ImageElement extends CanvasElement {
         
         // Add a hit tolerance that scales inversely with zoom level
         // This makes it easier to select elements when zoomed out
-        let hitTolerance = 10; // Base tolerance in pixels
+        let hitTolerance = 15; // Base tolerance in pixels
         
         // If we can access the viewport scale through the canvas manager
         if (window.canvasManager && window.canvasManager.viewport) {
