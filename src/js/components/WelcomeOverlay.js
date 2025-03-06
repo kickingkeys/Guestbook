@@ -46,22 +46,25 @@ export class WelcomeOverlay {
         
         // Add header
         const header = document.createElement('h2');
-        header.textContent = 'Welcome to the Collaborative Guestbook!';
+        header.textContent = 'Welcome to My Guest Book';
         contentContainer.appendChild(header);
         
         // Add description
         const description = document.createElement('div');
         description.className = 'welcome-description';
         description.innerHTML = `
-            <p>This is a collaborative canvas where you can draw, add notes, upload images, and capture photos together with others in real-time.</p>
-            <p>Everything you create will be visible to everyone else visiting this guestbook.</p>
+            <p>Hey!</p>
+            <p>This is an application I built for my class at ITP called "Handheld: Creative Tools for Handheld Devices", which is taught by Max Bittker. Everything you leave here will be visible to others that are visiting this guestbook.</p>
+            <p>It's got lots of bugs and issues, but I wanted it to have a permanent home, so I have it here on my website.</p>
+            <p>If you've stumbled upon it, leave a message, an image, or a Polaroid, or Just take a look around at what others have left. Be nice. Thank you!</p>
             <h3>Quick Tips:</h3>
             <ul>
-                <li><strong>Navigate:</strong> Use the Hand tool or hold Space + drag to pan around</li>
-                <li><strong>Zoom:</strong> Use the mouse wheel or pinch gestures on mobile</li>
-                <li><strong>Create:</strong> Select a tool from the toolbar to start adding content</li>
-                <li><strong>Collaborate:</strong> See who else is online in the users panel</li>
-                <li><strong>Offline:</strong> You can still use the guestbook when offline - changes will sync when you reconnect</li>
+                <li><strong>Selection Tool (Ctrl+V):</strong> Select, move, and resize elements</li>
+                <li><strong>Text Tool (Ctrl+T):</strong> Add and edit text</li>
+                <li><strong>Sticky Note Tool (Ctrl+N):</strong> Create colorful sticky notes</li>
+                <li><strong>Image Tool (Ctrl+I):</strong> Upload images from your device</li>
+                <li><strong>Polaroid Tool (Ctrl+C):</strong> Take instant photos with your camera</li>
+                <li><strong>Zoom:</strong> Use mouse wheel or pinch gestures on mobile</li>
             </ul>
         `;
         contentContainer.appendChild(description);

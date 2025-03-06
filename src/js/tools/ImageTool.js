@@ -110,8 +110,35 @@ export class ImageTool extends Tool {
             zIndex: this.getNextZIndex()
         });
         
+        console.log('[IMAGE TOOL] Creating new image element:', {
+            id: imageElement.id,
+            src: src.substring(0, 30) + '...',
+            x: x,
+            y: y,
+            hasFirebaseManager: !!this.canvasManager.firebaseManager,
+            isSyncing: this.canvasManager.isSyncing
+        });
+        
         // Add the image to the canvas
         this.canvasManager.addElement(imageElement);
+        
+        // Ensure the image is saved to Firebase
+        if (this.canvasManager.firebaseManager && !imageElement.isSynced) {
+            console.log('[IMAGE TOOL] Explicitly saving image to Firebase');
+            // Force syncing flag to true temporarily if needed
+            const wasSyncing = this.canvasManager.isSyncing;
+            if (!wasSyncing) {
+                this.canvasManager.isSyncing = true;
+            }
+            
+            // Save the element
+            this.canvasManager.saveElementToFirebase(imageElement);
+            
+            // Restore original syncing state
+            if (!wasSyncing) {
+                this.canvasManager.isSyncing = wasSyncing;
+            }
+        }
         
         // Select the image for immediate manipulation
         this.canvasManager.selectElement(imageElement);

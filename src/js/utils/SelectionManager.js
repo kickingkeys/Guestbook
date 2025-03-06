@@ -395,6 +395,9 @@ export class SelectionManager {
                 
                 console.log(`SelectionManager.drag - Moving element ${element.id} from (${startPos.x.toFixed(2)}, ${startPos.y.toFixed(2)}) to (${newX.toFixed(2)}, ${newY.toFixed(2)})`);
                 
+                // Set a flag to indicate this is a local drag operation
+                element.isBeingDragged = true;
+                
                 // Use the update method to ensure proper handling of the position change
                 element.update({
                     x: newX,
@@ -596,6 +599,20 @@ export class SelectionManager {
         // Request a final render update to ensure the elements are in their final positions
         if (this.isDragging || this.isResizing || this.isRotating) {
             this.canvasManager.requestRender();
+            
+            // Sync changes to Firebase
+            console.log('🔄 SYNC: Element movement completed, syncing to Firebase...');
+            
+            // Log each element that was modified
+            this.selectedElements.forEach(element => {
+                console.log(`🔄 SYNC: Updating element in Firebase - Type: ${element.type}, ID: ${element.id}, Position: (${element.x.toFixed(2)}, ${element.y.toFixed(2)})`);
+                
+                // Clear the dragging flag
+                element.isBeingDragged = false;
+                
+                // Update element in Firebase
+                this.canvasManager.updateElementInFirebase(element);
+            });
         }
         
         this.isDragging = false;

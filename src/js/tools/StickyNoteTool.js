@@ -146,8 +146,34 @@ export class StickyNoteTool extends Tool {
             text: 'New Sticky Note'
         });
         
+        console.log('[STICKY TOOL] Creating new sticky note:', {
+            id: stickyNote.id,
+            x: stickyNote.x,
+            y: stickyNote.y,
+            hasFirebaseManager: !!this.canvasManager.firebaseManager,
+            isSyncing: this.canvasManager.isSyncing
+        });
+        
         // Add the sticky note to the canvas
         this.canvasManager.addElement(stickyNote);
+        
+        // Ensure the sticky note is saved to Firebase
+        if (this.canvasManager.firebaseManager && !stickyNote.isSynced) {
+            console.log('[STICKY TOOL] Explicitly saving sticky note to Firebase');
+            // Force syncing flag to true temporarily if needed
+            const wasSyncing = this.canvasManager.isSyncing;
+            if (!wasSyncing) {
+                this.canvasManager.isSyncing = true;
+            }
+            
+            // Save the element
+            this.canvasManager.saveElementToFirebase(stickyNote);
+            
+            // Restore original syncing state
+            if (!wasSyncing) {
+                this.canvasManager.isSyncing = wasSyncing;
+            }
+        }
         
         // Select the new sticky note
         this.canvasManager.selectElement(stickyNote);
@@ -252,10 +278,21 @@ export class StickyNoteTool extends Tool {
         // Set the sticky note to non-editing mode
         this.editingElement.setEditing(false);
         
+        // Save the element to Firebase if it's not already synced
+        if (this.canvasManager && this.canvasManager.firebaseManager) {
+            if (!this.editingElement.isSynced) {
+                console.log('[STICKY] Saving sticky note to Firebase after editing');
+                this.canvasManager.saveElementToFirebase(this.editingElement);
+            } else {
+                console.log('[STICKY] Updating sticky note in Firebase after editing');
+                this.canvasManager.updateElementInFirebase(this.editingElement);
+            }
+        }
+        
         // Remove the input element if it's still in the DOM
         try {
-            if (this.editingInput.parentNode === document.body) {
-                document.body.removeChild(this.editingInput);
+            if (this.editingInput.parentNode) {
+                this.editingInput.parentNode.removeChild(this.editingInput);
             }
         } catch (error) {
             console.warn('Failed to remove editing input:', error);

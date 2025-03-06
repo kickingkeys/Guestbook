@@ -49,6 +49,9 @@ export class CanvasElement {
         // Owner highlighting
         this.isOwnerHighlighted = false;
         
+        // Flag to indicate if the element is being dragged locally
+        this.isBeingDragged = false;
+        
         // Animation state for new elements
         this.isNew = options.isNew !== undefined ? options.isNew : true;
         this.animationStartTime = options.isNew ? Date.now() : null;

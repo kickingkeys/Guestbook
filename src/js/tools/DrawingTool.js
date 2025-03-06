@@ -66,9 +66,6 @@ export class DrawingTool extends Tool {
         // Convert screen coordinates to canvas coordinates
         const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
         
-        console.log(`DrawingTool.onMouseDown - Screen coordinates: (${x.toFixed(2)}, ${y.toFixed(2)})`);
-        console.log(`DrawingTool.onMouseDown - Canvas coordinates: (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
-        
         // Start a new drawing path
         this.isDrawing = true;
         this.currentPath = {
@@ -84,16 +81,15 @@ export class DrawingTool extends Tool {
             width: this.strokeWidth
         });
         
-        console.log(`DrawingTool.onMouseDown - Created new DrawingElement with ID: ${this.currentElement.id}`);
-        console.log(`DrawingTool.onMouseDown - Element position: (${this.currentElement.x.toFixed(2)}, ${this.currentElement.y.toFixed(2)})`);
+        console.log(`✏️ DRAWING: Started new drawing - ID: ${this.currentElement.id}, Color: ${this.strokeColor}, Width: ${this.strokeWidth}`);
+        console.log(`✏️ DRAWING: Initial point at (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
         
         // Add the element to the canvas manager immediately
         if (this.canvasManager) {
             this.canvasManager.addElement(this.currentElement);
             this.canvasManager.requestRender();
+            console.log(`✏️ DRAWING: Element added to canvas manager - ID: ${this.currentElement.id}`);
         }
-        
-        console.log(`Drawing started at (${canvasPoint.x}, ${canvasPoint.y})`);
     }
     
     /**
@@ -108,19 +104,17 @@ export class DrawingTool extends Tool {
         // Convert screen coordinates to canvas coordinates
         const canvasPoint = this.canvasManager.viewport.screenToCanvas(x, y);
         
-        console.log(`DrawingTool.onMouseMove - Canvas coordinates: (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
-        
         // Add point to the current path
         this.currentPath.points.push({ x: canvasPoint.x, y: canvasPoint.y });
         
         // Update the current element
         if (this.currentElement) {
-            console.log(`DrawingTool.onMouseMove - Element position before adding point: (${this.currentElement.x.toFixed(2)}, ${this.currentElement.y.toFixed(2)})`);
-            
             this.currentElement.addPoint({ x: canvasPoint.x, y: canvasPoint.y });
             
-            console.log(`DrawingTool.onMouseMove - Element position after adding point: (${this.currentElement.x.toFixed(2)}, ${this.currentElement.y.toFixed(2)})`);
-            console.log(`DrawingTool.onMouseMove - Points count: ${this.currentElement.points.length}`);
+            // Log every 10th point to avoid excessive logging
+            if (this.currentPath.points.length % 10 === 0) {
+                console.log(`✏️ DRAWING: Added point #${this.currentPath.points.length} at (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
+            }
             
             // Request a render update
             if (this.canvasManager) {
@@ -148,15 +142,14 @@ export class DrawingTool extends Tool {
         if (this.currentElement) {
             this.currentElement.addPoint({ x: canvasPoint.x, y: canvasPoint.y });
             
+            console.log(`✏️ DRAWING: Finished drawing - ID: ${this.currentElement.id}, Total points: ${this.currentPath.points.length}`);
+            console.log(`✏️ DRAWING: Final point at (${canvasPoint.x.toFixed(2)}, ${canvasPoint.y.toFixed(2)})`);
+            
             // Request a render update (element is already added to canvas manager)
             if (this.canvasManager) {
                 this.canvasManager.requestRender();
-                console.log('Drawing element updated with final point');
             }
         }
-        
-        console.log(`Drawing ended at (${canvasPoint.x}, ${canvasPoint.y})`);
-        console.log(`Path has ${this.currentPath.points.length} points`);
         
         // Reset drawing state
         this.isDrawing = false;
@@ -209,8 +202,6 @@ export class DrawingTool extends Tool {
             this.isDrawing = false;
             this.currentPath = null;
             this.currentElement = null;
-            
-            console.log('Drawing cancelled');
         }
     }
     
@@ -260,8 +251,6 @@ export class DrawingTool extends Tool {
             this.canvasManager.addElement(this.currentElement);
             this.canvasManager.requestRender();
         }
-        
-        console.log(`Drawing started at (${canvasPoint.x}, ${canvasPoint.y}) via touch`);
     }
     
     /**
@@ -318,16 +307,27 @@ export class DrawingTool extends Tool {
             // Request a render update (element is already added to canvas manager)
             if (this.canvasManager) {
                 this.canvasManager.requestRender();
-                console.log('Drawing element updated with final point via touch');
             }
         }
-        
-        console.log(`Drawing ended at (${canvasPoint.x}, ${canvasPoint.y}) via touch`);
-        console.log(`Path has ${this.currentPath.points.length} points`);
         
         // Reset drawing state
         this.isDrawing = false;
         this.currentPath = null;
         this.currentElement = null;
+    }
+    
+    cancelDrawing() {
+        if (this.isDrawing) {
+            // Reset drawing state
+            this.isDrawing = false;
+            this.currentPath = null;
+            
+            // Remove the current element from the canvas manager
+            if (this.currentElement && this.canvasManager) {
+                this.canvasManager.removeElement(this.currentElement.id);
+                this.currentElement = null;
+                this.canvasManager.requestRender();
+            }
+        }
     }
 } 

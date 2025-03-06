@@ -19,8 +19,18 @@ export class CameraTool extends Tool {
             description: 'Camera Tool - Capture photos and add them to the canvas'
         });
         
+        console.log('CameraTool: Initializing constructor');
+        
         this.canvasManager = canvasManager;
-        this.cameraManager = new CameraManager();
+        console.log('CameraTool: Canvas manager available:', !!this.canvasManager);
+        
+        // Initialize camera manager
+        try {
+            this.cameraManager = new CameraManager();
+            console.log('CameraTool: Camera manager created successfully');
+        } catch (error) {
+            console.error('CameraTool: Error creating camera manager:', error);
+        }
         
         // Camera UI elements
         this.cameraInterface = null;
@@ -37,11 +47,11 @@ export class CameraTool extends Tool {
         this.isCapturing = false;
         this.capturePosition = { x: 0, y: 0 };
         this.isMobile = this._checkIfMobile();
+        console.log('CameraTool: Is mobile device:', this.isMobile);
         
         // Check if camera is supported
         this.isCameraSupported = CameraManager.isSupported();
-        console.log('CameraTool: Camera API supported:', this.isCameraSupported);
-        console.log('CameraTool: Mobile device detected:', this.isMobile);
+        console.log('CameraTool: Camera supported:', this.isCameraSupported);
     }
     
     /**
@@ -58,19 +68,6 @@ export class CameraTool extends Tool {
      */
     activate() {
         super.activate();
-        document.body.style.cursor = this.config.cursor;
-        console.log('CameraTool: Activated');
-        
-        // Create camera interface if it doesn't exist
-        if (!this.cameraInterface) {
-            this.createCameraInterface();
-        }
-        
-        // Show camera interface at the center of the screen
-        const canvasRect = this.canvasManager.canvas.getBoundingClientRect();
-        const x = canvasRect.left + canvasRect.width / 2;
-        const y = canvasRect.top + canvasRect.height / 2;
-        this.showCameraInterface(x, y);
     }
     
     /**
@@ -78,12 +75,9 @@ export class CameraTool extends Tool {
      */
     deactivate() {
         super.deactivate();
-        document.body.style.cursor = 'default';
-        console.log('CameraTool: Deactivated');
         
-        // Hide and stop the camera
+        // Hide camera interface if visible
         this.hideCameraInterface();
-        this.cameraManager.stop();
     }
     
     /**
@@ -111,7 +105,18 @@ export class CameraTool extends Tool {
         // Create loading indicator
         this.loadingIndicator = document.createElement('div');
         this.loadingIndicator.className = 'camera-loading';
-        this.loadingIndicator.innerHTML = '<div class="spinner"></div><div class="loading-text">Initializing camera...</div>';
+        
+        // Create spinner element
+        const spinner = document.createElement('div');
+        spinner.className = 'spinner';
+        this.loadingIndicator.appendChild(spinner);
+        
+        // Create loading text element
+        const loadingText = document.createElement('div');
+        loadingText.className = 'loading-text';
+        loadingText.textContent = 'Initializing camera...';
+        this.loadingIndicator.appendChild(loadingText);
+        
         this.cameraInterface.appendChild(this.loadingIndicator);
         
         // Create capture button
@@ -186,74 +191,139 @@ export class CameraTool extends Tool {
     }
     
     /**
-     * Show the camera interface and initialize the camera
-     * @param {number} x - The x coordinate where the camera was activated
-     * @param {number} y - The y coordinate where the camera was activated
+     * Show the camera interface at the specified position
+     * @param {number} x - The x coordinate
+     * @param {number} y - The y coordinate
      */
-    async showCameraInterface(x, y) {
-        console.log('CameraTool: Showing camera interface at position:', { x, y });
+    showCameraInterface(x, y) {
+        console.log('CameraTool: showCameraInterface called', { x, y });
         
-        // Store position for later placement of the captured image
+        // Store the capture position
         this.capturePosition = { x, y };
         
+        // Create the interface if it doesn't exist
+        if (!this.cameraInterface) {
+            console.log('CameraTool: Camera interface does not exist, creating it');
+            this.createCameraInterface();
+        } else {
+            console.log('CameraTool: Camera interface already exists');
+        }
+        
         // Show the interface
-        if (this.cameraInterface) {
-            this.cameraInterface.style.display = 'flex';
-            
-            // Check if camera is supported
-            if (!this.isCameraSupported) {
-                console.log('CameraTool: Camera not supported, showing fallback message');
-                this.showFallbackMessage();
-                
-                // Add file upload option as fallback
-                this.showFileUploadFallback();
+        this.cameraInterface.style.display = 'flex';
+        console.log('CameraTool: Camera interface display set to flex');
+        
+        // If camera is supported, initialize it
+        if (this.isCameraSupported) {
+            console.log('CameraTool: Camera is supported, initializing camera');
+            this.initializeCamera();
+        } else {
+            console.log('CameraTool: Camera is not supported, showing fallback message');
+            this.showFallbackMessage();
+        }
+    }
+    
+    /**
+     * Initialize the camera
+     */
+    async initializeCamera() {
+        console.log('CameraTool: Starting camera initialization');
+        this.showLoadingIndicator('Initializing camera...'); // Make sure loading indicator is visible with default message
+        
+        try {
+            // Check if camera manager exists
+            if (!this.cameraManager) {
+                console.error('CameraTool: Camera manager is not initialized');
+                this.showError('Camera initialization failed - manager not found');
                 return;
             }
             
-            // Hide fallback message if it was previously shown
-            this.hideFallbackMessage();
-            this.hideFileUploadFallback();
+            console.log('CameraTool: Calling cameraManager.initialize()');
+            // Initialize the camera
+            const initSuccess = await this.cameraManager.initialize();
+            console.log('CameraTool: Camera initialization result:', initSuccess);
             
-            // Show loading indicator
-            this.showLoadingIndicator();
+            if (!initSuccess) {
+                console.error('CameraTool: Camera initialization returned false');
+                this.showError('Failed to initialize camera');
+                return;
+            }
             
-            // Initialize camera
-            console.log('CameraTool: Initializing camera');
-            const success = await this.cameraManager.initialize(
-                this.videoElement,
-                (errorMessage) => this.showError(errorMessage)
-            );
-            
-            // Hide loading indicator
-            this.hideLoadingIndicator();
-            
-            if (!success) {
-                console.error('CameraTool: Failed to initialize camera');
-                this.showError('Failed to initialize camera. Please check permissions.');
+            // Set the video source
+            if (this.videoElement) {
+                console.log('CameraTool: Setting video source from camera stream');
+                this.videoElement.srcObject = this.cameraManager.stream;
                 
-                // Show file upload fallback when camera initialization fails
-                this.showFileUploadFallback();
+                // Add a timeout to hide the loading indicator in case the events don't fire
+                const videoReadyTimeout = setTimeout(() => {
+                    console.log('CameraTool: Video ready timeout reached, hiding loading indicator');
+                    this.hideLoadingIndicator();
+                }, 3000); // 3 second timeout
+                
+                // Hide loading indicator once video starts playing
+                this.videoElement.onloadedmetadata = () => {
+                    console.log('CameraTool: Video metadata loaded');
+                    // Don't hide yet, wait for playback to start
+                };
+                
+                this.videoElement.oncanplay = () => {
+                    console.log('CameraTool: Video can play');
+                    clearTimeout(videoReadyTimeout);
+                    this.hideLoadingIndicator();
+                };
+                
+                this.videoElement.onplay = () => {
+                    console.log('CameraTool: Video started playing');
+                    clearTimeout(videoReadyTimeout);
+                    this.hideLoadingIndicator();
+                };
+                
+                // Handle errors
+                this.videoElement.onerror = (error) => {
+                    console.error('CameraTool: Video element error:', error);
+                    clearTimeout(videoReadyTimeout);
+                    this.showError('Camera video error');
+                };
             } else {
-                console.log('CameraTool: Camera initialized successfully');
-                
-                // Apply fullscreen on mobile if supported
-                if (this.isMobile && this.cameraInterface.requestFullscreen) {
-                    try {
-                        await this.cameraInterface.requestFullscreen();
-                        console.log('CameraTool: Entered fullscreen mode');
-                    } catch (error) {
-                        console.warn('CameraTool: Could not enter fullscreen mode:', error);
-                    }
+                console.error('CameraTool: Video element not found');
+                this.showError('Camera interface error');
+                return;
+            }
+            
+            // Request fullscreen on mobile for better experience
+            if (this.isMobile && this.cameraInterface && this.cameraInterface.requestFullscreen) {
+                try {
+                    console.log('CameraTool: Requesting fullscreen');
+                    await this.cameraInterface.requestFullscreen();
+                    console.log('CameraTool: Fullscreen request successful');
+                } catch (error) {
+                    // Fullscreen request failed, but we can continue without it
+                    console.warn('CameraTool: Fullscreen request failed:', error);
                 }
             }
+            
+            console.log('CameraTool: Camera initialization completed successfully');
+        } catch (error) {
+            console.error('CameraTool: Failed to initialize camera', error);
+            this.showError('Failed to access camera');
         }
     }
     
     /**
      * Show loading indicator
+     * @param {string} message - Optional custom message to display
      */
-    showLoadingIndicator() {
+    showLoadingIndicator(message = null) {
+        console.log('CameraTool: Showing loading indicator', { customMessage: message });
         if (this.loadingIndicator) {
+            // Update message text if provided
+            if (message) {
+                const loadingText = this.loadingIndicator.querySelector('.loading-text');
+                if (loadingText) {
+                    loadingText.textContent = message;
+                }
+            }
+            
             this.loadingIndicator.style.display = 'flex';
             
             // Hide other UI elements while loading
@@ -267,6 +337,7 @@ export class CameraTool extends Tool {
      * Hide loading indicator
      */
     hideLoadingIndicator() {
+        console.log('CameraTool: Hiding loading indicator');
         if (this.loadingIndicator) {
             this.loadingIndicator.style.display = 'none';
             
@@ -486,12 +557,37 @@ export class CameraTool extends Tool {
      * Capture a photo from the camera
      */
     async capturePhoto() {
-        console.log('CameraTool: Capturing photo');
+        console.log('CameraTool: capturePhoto called');
+        
+        if (!this.cameraManager) {
+            console.error('CameraTool: Cannot capture photo - camera manager not found');
+            this.showError('Camera is not available');
+            return;
+        }
         
         if (!this.cameraManager.isActive()) {
             console.error('CameraTool: Cannot capture photo - camera not active');
-            this.showError('Camera is not active');
-            return;
+            console.log('CameraTool: Camera state:', {
+                isInitialized: this.cameraManager.isInitialized,
+                hasStream: !!this.cameraManager.stream,
+                hasVideoElement: !!this.cameraManager.videoElement
+            });
+            
+            // Try to reinitialize the camera
+            console.log('CameraTool: Attempting to reinitialize camera');
+            try {
+                await this.cameraManager.initialize();
+                // If initialization succeeds, continue with capture
+                if (!this.cameraManager.isActive()) {
+                    console.error('CameraTool: Reinitialization failed - camera still not active');
+                    this.showError('Camera is not active');
+                    return;
+                }
+            } catch (error) {
+                console.error('CameraTool: Reinitialization failed with error:', error);
+                this.showError('Camera is not active');
+                return;
+            }
         }
         
         try {
@@ -503,47 +599,128 @@ export class CameraTool extends Tool {
                 }, 300);
             }
             
+            console.log('CameraTool: Attempting to capture frame from camera');
             // Capture frame from video - pass false to disable orientation correction
-            console.log('CameraTool: Capturing frame from video without orientation correction');
-            const imageDataUrl = this.cameraManager.captureFrame(false);
+            let imageDataUrl = this.cameraManager.captureFrame(false);
+            
+            // If capture fails, try a fallback method
+            if (!imageDataUrl && this.videoElement) {
+                console.log('CameraTool: Primary capture failed, trying fallback method');
+                try {
+                    // Create a canvas and capture directly from the video element
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    
+                    // Set canvas dimensions to match video
+                    canvas.width = this.videoElement.videoWidth || 640;
+                    canvas.height = this.videoElement.videoHeight || 480;
+                    
+                    // Draw the current video frame to the canvas
+                    context.drawImage(this.videoElement, 0, 0, canvas.width, canvas.height);
+                    
+                    // Convert to data URL
+                    imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                    console.log('CameraTool: Fallback capture successful, data URL length:', imageDataUrl.length);
+                } catch (fallbackError) {
+                    console.error('CameraTool: Fallback capture also failed:', fallbackError);
+                }
+            }
+            
             if (!imageDataUrl) {
                 console.error('CameraTool: Failed to capture frame');
                 this.showError('Failed to capture photo');
                 return;
             }
             
-            // Show loading indicator
-            this.showLoadingIndicator();
+            console.log('CameraTool: Frame captured successfully, data URL length:', imageDataUrl.length);
+            
+            // Show loading indicator with custom message for polaroid creation
+            this.showLoadingIndicator("Creating polaroid this may take a second >.<");
+            
+            // Store the original image data URL as a fallback
+            const originalImageDataUrl = imageDataUrl;
+            let finalImageUrl = null;
+            let isStorageUrl = false;
             
             try {
                 // Get Firebase manager from canvas manager
-                const firebaseManager = this.canvasManager.firebaseManager;
+                const firebaseManager = this.canvasManager ? this.canvasManager.firebaseManager : null;
+                console.log('CameraTool: Firebase manager available:', !!firebaseManager);
                 
+                console.log('CameraTool: Starting Polaroid formatting');
                 // Apply Polaroid effect and upload to Firebase in one step
-                console.log('CameraTool: Applying Polaroid effect and uploading to Firebase');
                 const timestamp = PolaroidFormatter.getTimestampCaption();
-                const imageUrl = await PolaroidFormatter.format(imageDataUrl, {
-                    caption: timestamp,
-                    firebaseManager: firebaseManager,
-                    uploadToFirebase: !!firebaseManager
-                });
                 
-                // Add the image to the canvas
-                console.log('CameraTool: Adding image to canvas');
-                this.addImageToCanvas(imageUrl, !!firebaseManager);
+                // Set a timeout for the entire process
+                const processingTimeout = setTimeout(() => {
+                    console.error('CameraTool: Processing timeout reached, using fallback');
+                    if (!finalImageUrl) {
+                        // Use the original image data URL as a fallback
+                        this.addImageToCanvas(originalImageDataUrl, false);
+                        this.hideLoadingIndicator();
+                        this.hideCameraInterface();
+                    }
+                }, 15000); // 15 second timeout
+                
+                try {
+                    const imageUrl = await PolaroidFormatter.format(imageDataUrl, {
+                        caption: timestamp,
+                        firebaseManager: firebaseManager,
+                        uploadToFirebase: !!firebaseManager
+                    });
+                    
+                    console.log('CameraTool: Polaroid formatting complete, URL type:', 
+                        imageUrl.startsWith('data:') ? 'data URL' : 'Firebase URL');
+                    
+                    // Clear the timeout since we got a result
+                    clearTimeout(processingTimeout);
+                    
+                    // Store the result
+                    finalImageUrl = imageUrl;
+                    isStorageUrl = !imageUrl.startsWith('data:');
+                    
+                    // Add the image to the canvas
+                    console.log('CameraTool: Adding image to canvas');
+                    this.addImageToCanvas(finalImageUrl, isStorageUrl);
+                    console.log('CameraTool: Image added to canvas');
+                } catch (processingError) {
+                    console.error('CameraTool: Error in Polaroid formatting or upload:', processingError);
+                    
+                    // Clear the timeout since we're handling the error
+                    clearTimeout(processingTimeout);
+                    
+                    // Use the original image data URL as a fallback
+                    console.log('CameraTool: Using original image as fallback');
+                    finalImageUrl = originalImageDataUrl;
+                    isStorageUrl = false;
+                    
+                    // Add the image to the canvas
+                    this.addImageToCanvas(finalImageUrl, isStorageUrl);
+                }
             } catch (error) {
                 console.error('CameraTool: Error processing photo:', error);
-                this.showError('Failed to process photo');
+                
+                // Try to add the raw image to the canvas as a fallback
+                try {
+                    console.log('CameraTool: Attempting to add raw image as fallback');
+                    this.addImageToCanvas(originalImageDataUrl, false);
+                } catch (fallbackError) {
+                    console.error('CameraTool: Fallback image addition also failed:', fallbackError);
+                    this.showError('Failed to process photo');
+                }
             } finally {
                 this.hideLoadingIndicator();
+                
+                // Hide camera interface after capture
+                this.hideCameraInterface();
             }
-            
-            // Hide camera interface after capture
-            this.hideCameraInterface();
         } catch (error) {
             console.error('CameraTool: Error capturing photo:', error);
             this.hideLoadingIndicator();
             this.showError('Failed to process photo');
+            
+            // Hide camera interface after error
+            this.hideCameraInterface();
         }
     }
     
@@ -553,11 +730,21 @@ export class CameraTool extends Tool {
      * @param {boolean} isStorageUrl - Whether the URL is a Firebase Storage URL
      */
     addImageToCanvas(imageUrl, isStorageUrl = false) {
-        console.log('CameraTool: Processing captured image for canvas');
+        console.log('CameraTool: addImageToCanvas called', {
+            isStorageUrl: isStorageUrl,
+            urlType: imageUrl.startsWith('data:') ? 'data URL' : 'remote URL',
+            urlLength: imageUrl.length
+        });
         
         // Create a temporary image to get dimensions
         const tempImage = new Image();
+        
         tempImage.onload = () => {
+            console.log('CameraTool: Temporary image loaded successfully', {
+                width: tempImage.width,
+                height: tempImage.height
+            });
+            
             // Calculate size (maintain aspect ratio, but limit max size)
             // Adjust max size based on device and orientation
             let maxSize;
@@ -580,16 +767,17 @@ export class CameraTool extends Tool {
                 height = maxSize;
             }
             
-            console.log('CameraTool: Image dimensions:', {
-                original: { width: tempImage.width, height: tempImage.height },
-                resized: { width, height }
+            console.log('CameraTool: Calculated dimensions for canvas', {
+                width: width,
+                height: height,
+                maxSize: maxSize
             });
             
             // Remove random rotation - set to 0 instead of using PolaroidFormatter.getRandomRotation
             const rotation = 0;
-            console.log('CameraTool: Applied rotation:', rotation);
             
             // Create the image element
+            console.log('CameraTool: Creating ImageElement');
             const imageElement = new ImageElement({
                 src: imageUrl,
                 x: this.capturePosition.x - (width / 2),
@@ -601,15 +789,18 @@ export class CameraTool extends Tool {
             });
             
             // Add to canvas
+            console.log('CameraTool: Adding ImageElement to canvas');
             this.canvasManager.addElement(imageElement);
-            console.log('CameraTool: Image added to canvas successfully');
+            console.log('CameraTool: ImageElement added to canvas successfully');
         };
         
         tempImage.onerror = (error) => {
             console.error('CameraTool: Error loading image:', error);
+            console.error('CameraTool: Image URL type:', imageUrl.substring(0, 30) + '...');
             this.showError('Failed to process the captured image');
         };
         
+        console.log('CameraTool: Setting temporary image source');
         tempImage.src = imageUrl;
     }
     

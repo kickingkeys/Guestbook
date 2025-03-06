@@ -103,10 +103,10 @@ export class HandTool extends Tool {
      * @param {KeyboardEvent} event - The keyboard event
      */
     onKeyDown(event) {
-        // Space key can also activate the hand tool temporarily
-        if (event.code === 'Space' && !this.active) {
-            this.temporaryActivate();
-        }
+        // Space key activation is disabled
+        // if (event.code === 'Space' && !this.active) {
+        //     this.temporaryActivate();
+        // }
     }
     
     /**
@@ -114,10 +114,10 @@ export class HandTool extends Tool {
      * @param {KeyboardEvent} event - The keyboard event
      */
     onKeyUp(event) {
-        // Deactivate temporary hand tool when space is released
-        if (event.code === 'Space' && this.isTemporaryActive) {
-            this.temporaryDeactivate();
-        }
+        // Space key deactivation is disabled
+        // if (event.code === 'Space' && this.isTemporaryActive) {
+        //     this.temporaryDeactivate();
+        // }
     }
     
     /**

@@ -65,12 +65,25 @@ export class TextTool extends Tool {
         if (this.activeTextElement) {
             // If the text is empty, remove the element
             if (!this.activeTextElement.text.trim()) {
+                console.log(`📝 TEXT: Removing empty text element with ID: ${this.activeTextElement.id}`);
                 this.canvasManager.removeElement(this.activeTextElement);
-                console.log('Empty text element removed');
             } else {
                 // Set editing mode to false
                 this.activeTextElement.setEditing(false);
-                console.log('Finished editing text element');
+                
+                console.log(`📝 TEXT: Finished editing text element - ID: ${this.activeTextElement.id}`);
+                console.log(`📝 TEXT: Content: "${this.activeTextElement.text}"`);
+                console.log(`📝 TEXT: Font: ${this.activeTextElement.fontSize}px ${this.activeTextElement.fontFamily}`);
+                
+                // Save the element to Firebase
+                console.log(`📝 TEXT: Saving text element to Firebase...`);
+                this.canvasManager.saveElementToFirebase(this.activeTextElement)
+                    .then(firebaseId => {
+                        console.log(`✅ TEXT: Text element saved to Firebase with ID: ${firebaseId}`);
+                    })
+                    .catch(error => {
+                        console.error(`❌ TEXT: Error saving text element to Firebase:`, error);
+                    });
             }
             
             // Remove event listeners
@@ -92,6 +105,8 @@ export class TextTool extends Tool {
      * @returns {TextElement} - The created text element
      */
     createTextElement(x, y) {
+        console.log(`📝 TEXT: Creating new text element at position (${x.toFixed(2)}, ${y.toFixed(2)})`);
+        
         // Create a new text element
         const textElement = new TextElement({
             x: x,
@@ -112,7 +127,7 @@ export class TextTool extends Tool {
         // Add the element to the canvas manager
         this.canvasManager.addElement(textElement);
         
-        console.log('Created text element at:', x, y);
+        console.log(`📝 TEXT: Text element created with ID: ${textElement.id}`);
         
         // Set as active text element
         this.activeTextElement = textElement;
@@ -207,6 +222,12 @@ export class TextTool extends Tool {
         
         // Add the character to the text
         event.preventDefault();
+        
+        // Log the key press
+        if (event.key.length === 1) {  // Only log printable characters
+            console.log(`📝 TEXT: Adding character "${event.key}" to text element ID: ${this.activeTextElement.id}`);
+        }
+        
         this.activeTextElement.update({ 
             text: this.activeTextElement.text + event.key 
         });

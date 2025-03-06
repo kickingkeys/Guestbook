@@ -332,21 +332,51 @@ export class TextElement extends CanvasElement {
      * @returns {TextElement} - Deserialized text element
      */
     static deserialize(data) {
-        return new TextElement({
+        // Ensure data object exists
+        if (!data) {
+            console.error('[TEXT] Cannot deserialize null or undefined data');
+            data = {};
+        }
+        
+        // Log the data we're deserializing for debugging
+        console.log('[TEXT] Deserializing text element data:', {
             id: data.id,
-            firebaseId: data.firebaseId,
-            x: data.x,
-            y: data.y,
-            rotation: data.rotation,
-            scaleX: data.scaleX,
-            scaleY: data.scaleY,
-            zIndex: data.zIndex,
-            visible: data.visible,
+            text: data.text || '',
+            fontSize: data.fontSize,
+            fontFamily: data.fontFamily,
+            color: data.color
+        });
+        
+        // Try to find an existing element with the same ID to get its text content
+        let existingText = '';
+        if (data.id && window.canvasManager && (!data.text || data.text === '')) {
+            const existingElement = window.canvasManager.getElementById(data.id);
+            if (existingElement && existingElement.type === 'text' && existingElement.text) {
+                console.log('[TEXT] Found existing element with same ID, using its text content:', {
+                    id: data.id,
+                    existingText: existingElement.text
+                });
+                existingText = existingElement.text;
+            } else {
+                console.warn('[TEXT] No existing text content found for element ID:', data.id);
+            }
+        }
+        
+        // Create a new text element with the deserialized data
+        const textElement = new TextElement({
+            id: data.id || null,
+            x: data.x !== undefined ? data.x : 0,
+            y: data.y !== undefined ? data.y : 0,
+            rotation: data.rotation !== undefined ? data.rotation : 0,
+            scaleX: data.scaleX !== undefined ? data.scaleX : 1,
+            scaleY: data.scaleY !== undefined ? data.scaleY : 1,
+            zIndex: data.zIndex !== undefined ? data.zIndex : 0,
+            visible: data.visible !== undefined ? data.visible : true,
             createdAt: data.createdAt,
             updatedAt: data.updatedAt,
             createdBy: data.createdBy,
             updatedBy: data.updatedBy,
-            text: data.text || '',
+            text: data.text !== undefined ? data.text : existingText,
             fontSize: data.fontSize || 16,
             fontFamily: data.fontFamily || 'Arial, sans-serif',
             color: data.color || '#000000',
@@ -354,8 +384,17 @@ export class TextElement extends CanvasElement {
             bold: data.bold || false,
             italic: data.italic || false,
             underline: data.underline || false,
-            opacity: data.opacity || 1,
+            opacity: data.opacity !== undefined ? data.opacity : 1,
             isSynced: true
         });
+        
+        // Log the created text element
+        console.log('[TEXT] Text element deserialized:', {
+            id: textElement.id,
+            text: textElement.text,
+            position: `(${textElement.x}, ${textElement.y})`
+        });
+        
+        return textElement;
     }
 } 

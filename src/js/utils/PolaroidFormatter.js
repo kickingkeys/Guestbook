@@ -17,29 +17,57 @@ export class PolaroidFormatter {
      * @returns {Promise<string>} - Data URL or Firebase Storage URL of the formatted image
      */
     static async format(imageDataUrl, options = {}) {
-        console.log('PolaroidFormatter: Formatting image with options:', {
-            borderWidth: options.borderWidth || 20,
-            bottomBorderWidthRatio: options.bottomBorderWidthRatio || 0.25,
-            borderColor: options.borderColor || '#FFFFFF',
-            addShadow: options.addShadow !== false,
-            captionProvided: !!options.caption,
-            uploadToFirebase: options.uploadToFirebase || false
-        });
-        
         try {
+            console.log('PolaroidFormatter: Starting image formatting', {
+                hasImageData: !!imageDataUrl,
+                uploadToFirebase: !!options.uploadToFirebase,
+                hasFirebaseManager: !!options.firebaseManager
+            });
+            
             // Format the image
             const formattedDataUrl = await this._formatImage(imageDataUrl, options);
+            console.log('PolaroidFormatter: Image formatted successfully', {
+                formattedDataUrlLength: formattedDataUrl.length
+            });
             
             // Upload to Firebase if requested
             if (options.uploadToFirebase && options.firebaseManager) {
                 try {
-                    console.log('PolaroidFormatter: Uploading formatted image to Firebase Storage');
-                    const storageUrl = await options.firebaseManager.uploadImageFromDataUrl(formattedDataUrl, 'polaroids');
-                    console.log('PolaroidFormatter: Image uploaded to Firebase Storage:', storageUrl);
+                    console.log('PolaroidFormatter: Starting upload to Firebase Storage');
+                    
+                    // Set a timeout for the upload
+                    const uploadPromise = options.firebaseManager.uploadImageFromDataUrl(formattedDataUrl, 'polaroids');
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error('Upload timeout')), 10000); // 10 second timeout
+                    });
+                    
+                    // Race the upload against the timeout
+                    let storageUrl;
+                    try {
+                        storageUrl = await Promise.race([uploadPromise, timeoutPromise]);
+                    } catch (timeoutError) {
+                        console.error('PolaroidFormatter: Upload timeout reached:', timeoutError);
+                        console.log('PolaroidFormatter: Falling back to data URL due to timeout');
+                        return formattedDataUrl;
+                    }
+                    
+                    if (!storageUrl) {
+                        console.error('PolaroidFormatter: No storage URL returned');
+                        return formattedDataUrl;
+                    }
+                    
+                    console.log('PolaroidFormatter: Image uploaded to Firebase Storage successfully', {
+                        storageUrl: storageUrl
+                    });
                     return storageUrl;
                 } catch (error) {
-                    console.error('PolaroidFormatter: Error uploading to Firebase Storage:', error);
+                    console.error('PolaroidFormatter: Error uploading to Firebase Storage:', {
+                        errorCode: error.code,
+                        errorMessage: error.message,
+                        errorName: error.name
+                    });
                     // Fall back to data URL
+                    console.log('PolaroidFormatter: Falling back to data URL due to upload error');
                     return formattedDataUrl;
                 }
             }
@@ -47,7 +75,17 @@ export class PolaroidFormatter {
             // Return the formatted data URL
             return formattedDataUrl;
         } catch (error) {
-            console.error('PolaroidFormatter: Error formatting image:', error);
+            console.error('PolaroidFormatter: Error formatting image:', {
+                errorMessage: error.message,
+                errorName: error.name
+            });
+            
+            // If we have the original image data URL, return it as a fallback
+            if (imageDataUrl) {
+                console.log('PolaroidFormatter: Returning original image as fallback');
+                return imageDataUrl;
+            }
+            
             throw error;
         }
     }
@@ -74,19 +112,12 @@ export class PolaroidFormatter {
                     caption: options.caption || ''
                 };
 
-                console.log('PolaroidFormatter: Using settings for ' + (isMobile ? 'mobile' : 'desktop') + ':', settings);
-
                 // Create an image element to load the source image
                 const sourceImage = new Image();
                 sourceImage.crossOrigin = 'Anonymous';
                 
                 // Handle image load
                 sourceImage.onload = () => {
-                    console.log('PolaroidFormatter: Source image loaded, dimensions:', {
-                        width: sourceImage.width,
-                        height: sourceImage.height
-                    });
-                    
                     // Create a canvas for the Polaroid effect
                     const canvas = document.createElement('canvas');
                     const ctx = canvas.getContext('2d');
@@ -97,16 +128,10 @@ export class PolaroidFormatter {
                     
                     // Calculate bottom border width based on image height
                     const bottomBorderWidth = Math.round(imageHeight * settings.bottomBorderWidthRatio);
-                    console.log('PolaroidFormatter: Calculated bottom border width:', bottomBorderWidth);
                     
                     // Set canvas size to include the Polaroid frame
                     canvas.width = imageWidth + (settings.borderWidth * 2);
                     canvas.height = imageHeight + settings.borderWidth + bottomBorderWidth;
-                    
-                    console.log('PolaroidFormatter: Canvas dimensions:', {
-                        width: canvas.width,
-                        height: canvas.height
-                    });
                     
                     // Draw the white Polaroid frame
                     ctx.fillStyle = settings.borderColor;
@@ -114,7 +139,6 @@ export class PolaroidFormatter {
                     
                     // Add shadow if enabled
                     if (settings.addShadow) {
-                        console.log('PolaroidFormatter: Adding shadow effect');
                         ctx.save();
                         // Create a subtle shadow effect
                         ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
@@ -129,7 +153,6 @@ export class PolaroidFormatter {
                     }
                     
                     // Draw the image on top of the frame
-                    console.log('PolaroidFormatter: Drawing image on canvas');
                     ctx.drawImage(
                         sourceImage,
                         settings.borderWidth,
@@ -140,13 +163,10 @@ export class PolaroidFormatter {
                     
                     // Add caption if provided
                     if (settings.caption) {
-                        console.log('PolaroidFormatter: Adding caption:', settings.caption);
-                        
                         // Calculate font size based on image size (between 16 and 28px on mobile, 20 and 32px on desktop)
                         const minFontSize = isMobile ? 16 : 20;
                         const maxFontSize = isMobile ? 28 : 32;
                         const fontSize = Math.max(minFontSize, Math.min(maxFontSize, Math.floor(imageWidth / 12)));
-                        console.log('PolaroidFormatter: Using font size:', fontSize);
                         
                         // Set font with bold weight
                         ctx.font = `bold ${fontSize}px Caveat, cursive`;
@@ -168,7 +188,6 @@ export class PolaroidFormatter {
                     
                     // Convert canvas to data URL
                     const formattedImageUrl = canvas.toDataURL('image/jpeg', 0.9);
-                    console.log('PolaroidFormatter: Image formatting complete');
                     resolve(formattedImageUrl);
                 };
                 
@@ -179,7 +198,6 @@ export class PolaroidFormatter {
                 };
                 
                 // Set the source to start loading
-                console.log('PolaroidFormatter: Loading source image');
                 sourceImage.src = imageDataUrl;
             } catch (error) {
                 console.error('PolaroidFormatter: Error formatting Polaroid image:', error);
@@ -203,7 +221,6 @@ export class PolaroidFormatter {
         // for a more natural look (most people place photos with a slight clockwise tilt)
         const bias = 0.5; // Slight positive bias
         const rotation = ((Math.random() - 0.5) * 2 * maxAngle) + bias;
-        console.log('PolaroidFormatter: Generated random rotation:', rotation);
         return rotation;
     }
     
@@ -222,7 +239,6 @@ export class PolaroidFormatter {
         }
         
         const caption = now.toLocaleDateString('en-US', dateOptions);
-        console.log('PolaroidFormatter: Generated timestamp caption:', caption);
         return caption;
     }
 } 

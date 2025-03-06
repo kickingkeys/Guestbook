@@ -32,12 +32,6 @@ export class DrawingElement extends CanvasElement {
     render(ctx) {
         if (!this.visible || this.points.length === 0) return;
         
-        // Add debugging logs
-        console.log(`DrawingElement.render - Element ID: ${this.id}`);
-        console.log(`DrawingElement.render - Position: (${this.x.toFixed(2)}, ${this.y.toFixed(2)})`);
-        console.log(`DrawingElement.render - Rotation: ${this.rotation.toFixed(4)} radians (${(this.rotation * 180 / Math.PI).toFixed(2)}°)`);
-        console.log(`DrawingElement.render - Scale: (${this.scaleX.toFixed(2)}, ${this.scaleY.toFixed(2)})`);
-        
         // Save context state
         ctx.save();
         
@@ -45,12 +39,6 @@ export class DrawingElement extends CanvasElement {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
         ctx.scale(this.scaleX, this.scaleY);
-        
-        // Log the first and last points for debugging
-        if (this.points.length > 0) {
-            console.log(`DrawingElement.render - First point: (${this.points[0].x.toFixed(2)}, ${this.points[0].y.toFixed(2)})`);
-            console.log(`DrawingElement.render - Last point: (${this.points[this.points.length-1].x.toFixed(2)}, ${this.points[this.points.length-1].y.toFixed(2)})`);
-        }
         
         // Set drawing style
         ctx.strokeStyle = this.color;
@@ -165,11 +153,6 @@ export class DrawingElement extends CanvasElement {
             return { x: this.x, y: this.y, width: 0, height: 0 };
         }
         
-        // Add debugging logs
-        console.log(`DrawingElement.getBoundingBox - Element ID: ${this.id}`);
-        console.log(`DrawingElement.getBoundingBox - Position: (${this.x.toFixed(2)}, ${this.y.toFixed(2)})`);
-        console.log(`DrawingElement.getBoundingBox - Rotation: ${this.rotation.toFixed(4)} radians (${(this.rotation * 180 / Math.PI).toFixed(2)}°)`);
-        
         // Find min and max coordinates of the drawing points
         let minX = this.points[0].x;
         let minY = this.points[0].y;
@@ -183,8 +166,6 @@ export class DrawingElement extends CanvasElement {
             maxX = Math.max(maxX, point.x);
             maxY = Math.max(maxY, point.y);
         }
-        
-        console.log(`DrawingElement.getBoundingBox - Point bounds: minX=${minX.toFixed(2)}, minY=${minY.toFixed(2)}, maxX=${maxX.toFixed(2)}, maxY=${maxY.toFixed(2)}`);
         
         // Add some padding for stroke width
         const padding = this.width / 2;
@@ -209,7 +190,6 @@ export class DrawingElement extends CanvasElement {
                 width: scaledWidth,
                 height: scaledHeight
             };
-            console.log(`DrawingElement.getBoundingBox - Unrotated bbox: x=${bbox.x.toFixed(2)}, y=${bbox.y.toFixed(2)}, width=${bbox.width.toFixed(2)}, height=${bbox.height.toFixed(2)}`);
             return bbox;
         }
         
@@ -224,8 +204,6 @@ export class DrawingElement extends CanvasElement {
         // Transform the center to world coordinates
         const centerX = this.x + localCenterX * this.scaleX;
         const centerY = this.y + localCenterY * this.scaleY;
-        
-        console.log(`DrawingElement.getBoundingBox - Calculated center: (${centerX.toFixed(2)}, ${centerY.toFixed(2)})`);
         
         // Calculate the four corners of the rotated rectangle
         const halfWidth = scaledWidth / 2;
@@ -250,8 +228,6 @@ export class DrawingElement extends CanvasElement {
             }
         ];
         
-        console.log(`DrawingElement.getBoundingBox - Rotated corners:`, corners.map(c => `(${c.x.toFixed(2)}, ${c.y.toFixed(2)})`));
-        
         // Find the min and max coordinates to create the bounding box
         let boundMinX = corners[0].x;
         let boundMinY = corners[0].y;
@@ -271,8 +247,6 @@ export class DrawingElement extends CanvasElement {
             width: boundMaxX - boundMinX,
             height: boundMaxY - boundMinY
         };
-        
-        console.log(`DrawingElement.getBoundingBox - Final rotated bbox: x=${bbox.x.toFixed(2)}, y=${bbox.y.toFixed(2)}, width=${bbox.width.toFixed(2)}, height=${bbox.height.toFixed(2)}`);
         
         return bbox;
     }
@@ -328,19 +302,7 @@ export class DrawingElement extends CanvasElement {
      * @param {Object} point - The point to add {x, y}
      */
     addPoint(point) {
-        console.log(`DrawingElement.addPoint - Element ID: ${this.id}`);
-        console.log(`DrawingElement.addPoint - Element position: (${this.x.toFixed(2)}, ${this.y.toFixed(2)})`);
-        console.log(`DrawingElement.addPoint - Adding point: (${point.x.toFixed(2)}, ${point.y.toFixed(2)})`);
-        console.log(`DrawingElement.addPoint - Points count before: ${this.points.length}`);
-        
         this.points.push(point);
-        
-        console.log(`DrawingElement.addPoint - Points count after: ${this.points.length}`);
-        
-        // If this is the first point, log it
-        if (this.points.length === 1) {
-            console.log(`DrawingElement.addPoint - First point added`);
-        }
         
         // Reset cached bounding box
         this._boundingBox = null;

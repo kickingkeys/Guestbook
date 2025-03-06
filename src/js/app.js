@@ -36,6 +36,7 @@ class App {
         // Initialize Firebase manager
         this.firebaseManager = new FirebaseManager();
         
+        this.canvasManager.setFirebaseManager(this.firebaseManager);
         // Initialize user presence
         this.userPresence = new UserPresence(this.firebaseManager);
         
@@ -83,7 +84,7 @@ class App {
         
         // Set default tool (sticky for mobile, drawing for desktop)
         const isMobile = window.innerWidth <= 768;
-        this.selectTool(isMobile ? 'sticky' : 'drawing');
+        this.selectTool(isMobile ? 'sticky' : 'selection'); // Changed from 'drawing' to 'selection'
         
         // Set up canvas click handler for direct selection
         this.setupDirectSelection();
@@ -104,6 +105,30 @@ class App {
         
         // Start the render loop
         this.startRenderLoop();
+        
+        // Initial toolbar position check
+        this.updateToolbarPosition();
+        
+        // Ensure the current tool is not one of the disabled tools
+        const disabledTools = ['hand', 'drawing', 'eraser'];
+        const currentTool = this.toolManager.getCurrentTool();
+        
+        if (currentTool) {
+            // Find the name of the current tool
+            let currentToolName = null;
+            for (const [name, tool] of Object.entries(this.toolManager.tools)) {
+                if (tool === currentTool) {
+                    currentToolName = name;
+                    break;
+                }
+            }
+            
+            // If the current tool is disabled, switch to selection tool
+            if (currentToolName && disabledTools.includes(currentToolName)) {
+                console.log(`Current tool "${currentToolName}" is disabled, switching to selection tool`);
+                this.selectTool('selection');
+            }
+        }
         
         console.log('Application initialized successfully.');
     }
@@ -176,9 +201,35 @@ class App {
         // Tool selection events
         const toolButtons = document.querySelectorAll('.tool-button');
         toolButtons.forEach(button => {
+            const toolName = button.getAttribute('data-tool');
+            
+            // Remove the hand (move) tool from the toolbar
+            if (toolName === 'hand') {
+                button.style.display = 'none';
+                return;
+            }
+            
+            // Disable the eraser and drawing tools
+            if (toolName === 'eraser' || toolName === 'draw') {
+                button.classList.add('disabled');
+                
+                // Update tooltip to indicate the tool is disabled
+                const originalTooltip = button.getAttribute('data-tooltip');
+                button.setAttribute('data-tooltip', originalTooltip + ' (Disabled)');
+                
+                // Skip adding event listeners for disabled tools
+                return;
+            }
+            
             // Add click event for desktop
             button.addEventListener('click', (e) => {
                 const toolName = button.getAttribute('data-tool');
+                
+                // Prevent selecting disabled tools
+                if (button.classList.contains('disabled')) {
+                    return;
+                }
+                
                 this.selectTool(this.mapLegacyToolName(toolName));
             });
             
@@ -186,6 +237,12 @@ class App {
             button.addEventListener('touchstart', (e) => {
                 // Prevent default to avoid any scrolling/zooming
                 e.preventDefault();
+                
+                // Don't add active-touch class to disabled tools
+                if (button.classList.contains('disabled')) {
+                    return;
+                }
+                
                 button.classList.add('active-touch');
             });
             
@@ -193,6 +250,11 @@ class App {
                 // Prevent default to avoid any scrolling/zooming
                 e.preventDefault();
                 button.classList.remove('active-touch');
+                
+                // Prevent selecting disabled tools
+                if (button.classList.contains('disabled')) {
+                    return;
+                }
                 
                 // Get the tool name and select it
                 const toolName = button.getAttribute('data-tool');
@@ -956,10 +1018,10 @@ class App {
             ctx.stroke();
             
             // Draw user name
-            ctx.font = '12px Arial';
-            ctx.fillStyle = '#FFFFFF';
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 3;
+            ctx.font = '16px Caveat, cursive';
+            ctx.fillStyle = user.color;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 2;
             ctx.strokeText(user.name, screenX + 15, screenY + 20);
             ctx.fillText(user.name, screenX + 15, screenY + 20);
             
@@ -977,6 +1039,7 @@ class App {
         this.loadingState.updateMessage('Initializing Firebase...');
         
         try {
+            if (!this.isInitialized) { 
             // Initialize Firebase
             await this.firebaseManager.initialize();
             this.loadingState.updateProgress(20);
@@ -986,7 +1049,8 @@ class App {
             this.networkStatus.initialize();
             this.networkStatus.addListener(this.handleNetworkStatusChange.bind(this));
             this.loadingState.updateProgress(30);
-            
+            this.isInitialized = true;
+            }
             // Initialize user presence
             try {
                 await this.userPresence.initialize();
@@ -1004,10 +1068,11 @@ class App {
             
             // Start syncing elements with Firebase
             try {
-                this.canvasManager.startSyncingElements(true);
+                console.log('[APP] Starting element synchronization with full loading');
+                await this.canvasManager.startSyncingElements(false); // Use full loading instead of viewport-based loading
                 this.loadingState.updateProgress(60);
             } catch (syncError) {
-                console.warn('Element syncing failed:', syncError);
+                console.error('[APP] Element syncing failed:', syncError);
                 this.loadingState.updateProgress(60);
                 // Continue anyway - we can still use the app without syncing
             }
@@ -1159,6 +1224,9 @@ class App {
                 const newName = nameInput.value.trim();
                 if (newName) {
                     this.userPresence.updateUserName(newName);
+                    // Close the panel after updating the name
+                    panel.classList.remove('visible');
+                    document.querySelector('.online-users-toggle').classList.remove('active');
                 }
             });
         }

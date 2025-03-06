@@ -7,245 +7,238 @@ export class CameraManager {
      * Constructor
      */
     constructor() {
+        // Camera state
         this.stream = null;
         this.videoElement = null;
-        this.facingMode = 'user'; // Default to front camera
         this.isInitialized = false;
-        this.onErrorCallback = null;
-        this.currentOrientation = window.orientation || 0;
-        this.orientationChangeHandler = null;
+        this.facingMode = 'environment'; // Default to back camera
         
-        console.log('CameraManager: Initialized');
+        // Track orientation for mobile devices
+        this.currentOrientation = window.orientation || 0;
+        this.orientationChangeListener = null;
+        this.orientationMediaQueryListener = null;
     }
 
     /**
      * Initialize the camera
-     * @param {HTMLVideoElement} videoElement - The video element to display the camera feed
-     * @param {Function} onError - Error callback function
-     * @returns {Promise<boolean>} - Whether initialization was successful
+     * @returns {Promise<boolean>} - Promise resolving to true if initialization was successful
      */
-    async initialize(videoElement, onError = null) {
-        this.videoElement = videoElement;
-        this.onErrorCallback = onError;
-
-        console.log('CameraManager: Attempting to initialize camera with facing mode:', this.facingMode);
-        console.log('CameraManager: Current device orientation:', this.currentOrientation);
-
+    async initialize() {
         try {
-            // Check if the MediaDevices API is supported
-            if (!navigator.mediaDevices) {
+            console.log('CameraManager: Starting initialization');
+            
+            // Check if camera API is supported
+            if (!this.constructor.isSupported()) {
                 console.error('CameraManager: MediaDevices API is not supported in this browser');
-                throw new Error('Camera API is not supported in this browser');
+                throw new Error('Camera API not supported');
             }
             
-            if (!navigator.mediaDevices.getUserMedia) {
-                console.error('CameraManager: getUserMedia is not supported in this browser');
-                throw new Error('Camera API is not supported in this browser');
-            }
-
             // Check if we're in a secure context (HTTPS)
             if (!window.isSecureContext) {
                 console.error('CameraManager: Not in a secure context (HTTPS), camera access may be restricted');
-                // We'll still try to access the camera, but log the warning
             }
-
-            console.log('CameraManager: Requesting camera permissions...');
+            
+            // Request camera permissions
+            const constraints = this._getVideoConstraints();
+            console.log('CameraManager: Using video constraints:', constraints);
             
             try {
-                // Get camera stream with appropriate constraints for the device
-                this.stream = await this._getStreamWithOrientationConstraints();
-            } catch (streamError) {
-                console.warn('CameraManager: Failed with initial constraints, trying fallback constraints', streamError);
+                console.log('CameraManager: Requesting camera access with constraints');
+                this.stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: constraints,
+                    audio: false 
+                });
+                console.log('CameraManager: Camera access granted successfully');
+            } catch (error) {
+                console.error('CameraManager: Error with initial constraints:', error);
                 
-                // Try with minimal constraints as fallback
-                const fallbackConstraints = {
-                    video: true,
-                    audio: false
-                };
-                
-                console.log('CameraManager: Using fallback constraints:', JSON.stringify(fallbackConstraints));
-                this.stream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+                // If the constraints fail, try with basic constraints
+                if (error.name === 'OverconstrainedError' || error.name === 'ConstraintNotSatisfiedError') {
+                    console.log('CameraManager: Falling back to basic constraints');
+                    const fallbackConstraints = { facingMode: this.facingMode };
+                    console.log('CameraManager: Using fallback constraints:', fallbackConstraints);
+                    
+                    try {
+                        this.stream = await navigator.mediaDevices.getUserMedia({ 
+                            video: fallbackConstraints,
+                            audio: false 
+                        });
+                        console.log('CameraManager: Camera access granted with fallback constraints');
+                    } catch (fallbackError) {
+                        console.error('CameraManager: Fallback constraints also failed:', fallbackError);
+                        throw fallbackError;
+                    }
+                } else {
+                    throw error;
+                }
             }
-
-            console.log('CameraManager: Camera permissions granted');
-            console.log('CameraManager: Stream tracks:', this.stream.getVideoTracks().map(track => ({
-                label: track.label,
-                id: track.id,
-                enabled: track.enabled,
-                muted: track.muted
-            })));
-
+            
+            // Create a video element if not provided
+            if (!this.videoElement) {
+                console.log('CameraManager: Creating new video element');
+                this.videoElement = document.createElement('video');
+                this.videoElement.autoplay = true;
+                this.videoElement.playsInline = true; // Important for iOS
+                this.videoElement.muted = true;
+            } else {
+                console.log('CameraManager: Using existing video element');
+            }
+            
             // Set the stream as the video source
+            console.log('CameraManager: Setting stream as video source');
             this.videoElement.srcObject = this.stream;
             
-            // Wait for the video to be ready
-            await new Promise(resolve => {
-                this.videoElement.onloadedmetadata = () => {
-                    console.log('CameraManager: Video metadata loaded, dimensions:', {
-                        videoWidth: this.videoElement.videoWidth,
-                        videoHeight: this.videoElement.videoHeight
-                    });
-                    this.videoElement.play().catch(playError => {
-                        console.warn('CameraManager: Error playing video:', playError);
-                        // Continue anyway, as we might still be able to capture frames
-                    });
+            // Wait for video metadata to load
+            console.log('CameraManager: Waiting for video metadata to load');
+            await new Promise((resolve) => {
+                if (this.videoElement.readyState >= 2) {
+                    console.log('CameraManager: Video metadata already loaded');
                     resolve();
-                };
-                
-                // Add timeout in case metadata never loads
-                setTimeout(() => {
-                    console.warn('CameraManager: Video metadata load timeout');
-                    resolve();
-                }, 3000);
+                } else {
+                    console.log('CameraManager: Setting onloadedmetadata handler');
+                    this.videoElement.onloadedmetadata = () => {
+                        console.log('CameraManager: Video metadata loaded');
+                        resolve();
+                    };
+                }
             });
-
-            // Set up orientation change listener
+            
+            // Start playing the video
+            console.log('CameraManager: Starting video playback');
+            try {
+                await this.videoElement.play();
+                console.log('CameraManager: Video playback started successfully');
+            } catch (playError) {
+                console.error('CameraManager: Error starting video playback:', playError);
+                throw playError;
+            }
+            
+            // Set up orientation change listener for mobile devices
             this._setupOrientationChangeListener();
-
+            
+            // Mark as initialized
             this.isInitialized = true;
-            console.log('CameraManager: Camera successfully initialized');
+            console.log('CameraManager: Initialization completed successfully');
+            
             return true;
         } catch (error) {
-            // Log detailed error information
             console.error('CameraManager: Initialization error:', error);
             console.error('CameraManager: Error name:', error.name);
             console.error('CameraManager: Error message:', error.message);
-            
-            let errorMessage = 'Failed to access camera';
-            
-            // Provide more specific error messages based on error type
-            if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                errorMessage = 'Camera access denied. Please allow camera permissions in your browser settings.';
-            } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-                errorMessage = 'No camera found on this device.';
-            } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-                errorMessage = 'Camera is already in use by another application.';
-            } else if (error.name === 'OverconstrainedError') {
-                errorMessage = 'Camera constraints cannot be satisfied.';
-            } else if (error.name === 'TypeError' || error.message.includes('API')) {
-                errorMessage = 'Camera API is not supported in this browser.';
-            } else if (!window.isSecureContext) {
-                errorMessage = 'Camera access requires a secure connection (HTTPS).';
-            }
-            
-            if (this.onErrorCallback) {
-                this.onErrorCallback(errorMessage);
-            }
+            this.isInitialized = false;
             return false;
         }
     }
 
     /**
-     * Get camera stream with appropriate constraints based on device orientation
-     * @returns {MediaStream} - The camera stream
+     * Get video constraints based on device type and orientation
+     * @returns {Object} - Video constraints
      * @private
      */
-    async _getStreamWithOrientationConstraints() {
+    _getVideoConstraints() {
+        // Check if on mobile device
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        // Check if in portrait or landscape orientation
         const isPortrait = window.matchMedia("(orientation: portrait)").matches;
         
-        console.log('CameraManager: Device detection - Mobile:', isMobile, 'Portrait:', isPortrait);
-        
-        // Base constraints
+        // Basic constraints with facing mode
         const constraints = {
-            video: {
-                facingMode: this.facingMode
-            },
-            audio: false
+            facingMode: this.facingMode,
+            width: { ideal: isPortrait ? 720 : 1280 },
+            height: { ideal: isPortrait ? 1280 : 720 }
         };
         
-        // Add ideal dimensions based on orientation
-        if (isMobile) {
-            if (isPortrait) {
-                // Portrait mode - taller than wide
-                constraints.video.width = { ideal: 720 };
-                constraints.video.height = { ideal: 1280 };
-            } else {
-                // Landscape mode - wider than tall
-                constraints.video.width = { ideal: 1280 };
-                constraints.video.height = { ideal: 720 };
-            }
-        } else {
-            // Desktop - standard 16:9 aspect ratio
-            constraints.video.width = { ideal: 1280 };
-            constraints.video.height = { ideal: 720 };
-        }
-        
-        console.log('CameraManager: Using constraints:', JSON.stringify(constraints));
-        return navigator.mediaDevices.getUserMedia(constraints);
+        return constraints;
     }
 
     /**
-     * Set up orientation change listener
+     * Set up orientation change listener for mobile devices
      * @private
      */
     _setupOrientationChangeListener() {
-        // Remove any existing listener
+        // Remove any existing listeners
         this._removeOrientationChangeListener();
         
-        // Create new listener
-        this.orientationChangeHandler = async () => {
+        // Listen for orientation changes
+        this.orientationChangeListener = () => {
             const newOrientation = window.orientation || 0;
-            console.log('CameraManager: Orientation changed from', this.currentOrientation, 'to', newOrientation);
-            this.currentOrientation = newOrientation;
             
-            // Only reinitialize if camera is already active
-            if (this.isInitialized) {
-                console.log('CameraManager: Reinitializing camera due to orientation change');
+            // Only reinitialize if orientation actually changed
+            if (newOrientation !== this.currentOrientation) {
+                this.currentOrientation = newOrientation;
                 
-                // Stop current stream
-                this.stop();
-                
-                // Short delay to allow camera to reset
-                await new Promise(resolve => setTimeout(resolve, 300));
-                
-                // Reinitialize with same facing mode
-                await this.initialize(this.videoElement, this.onErrorCallback);
+                // Reinitialize camera with new orientation
+                setTimeout(() => {
+                    this.stop();
+                    this.initialize();
+                }, 500); // Delay to allow for orientation change to complete
             }
         };
         
-        // Add the listener
-        if (window.orientation !== undefined) {
-            window.addEventListener('orientationchange', this.orientationChangeHandler);
-            console.log('CameraManager: Orientation change listener added');
+        // Add orientation change listener
+        window.addEventListener('orientationchange', this.orientationChangeListener);
+        
+        // Also listen for orientation changes via media query for devices that don't support window.orientation
+        const mediaQuery = window.matchMedia("(orientation: portrait)");
+        this.orientationMediaQueryListener = (e) => {
+            // Reinitialize camera when orientation changes
+            setTimeout(() => {
+                this.stop();
+                this.initialize();
+            }, 500);
+        };
+        
+        // Add media query listener
+        if (mediaQuery.addEventListener) {
+            mediaQuery.addEventListener('change', this.orientationMediaQueryListener);
         } else {
-            window.matchMedia("(orientation: portrait)").addEventListener('change', this.orientationChangeHandler);
-            console.log('CameraManager: Orientation media query listener added');
+            // Fallback for older browsers
+            mediaQuery.addListener(this.orientationMediaQueryListener);
         }
     }
 
     /**
-     * Remove orientation change listener
+     * Remove orientation change listeners
      * @private
      */
     _removeOrientationChangeListener() {
-        if (this.orientationChangeHandler) {
-            if (window.orientation !== undefined) {
-                window.removeEventListener('orientationchange', this.orientationChangeHandler);
+        if (this.orientationChangeListener) {
+            window.removeEventListener('orientationchange', this.orientationChangeListener);
+            this.orientationChangeListener = null;
+        }
+        
+        if (this.orientationMediaQueryListener) {
+            const mediaQuery = window.matchMedia("(orientation: portrait)");
+            if (mediaQuery.removeEventListener) {
+                mediaQuery.removeEventListener('change', this.orientationMediaQueryListener);
             } else {
-                window.matchMedia("(orientation: portrait)").removeEventListener('change', this.orientationChangeHandler);
+                // Fallback for older browsers
+                mediaQuery.removeListener(this.orientationMediaQueryListener);
             }
-            this.orientationChangeHandler = null;
-            console.log('CameraManager: Orientation change listener removed');
+            this.orientationMediaQueryListener = null;
         }
     }
 
     /**
      * Switch between front and back cameras
-     * @returns {Promise<boolean>} - Whether the switch was successful
+     * @returns {Promise<boolean>} - Promise resolving to true if switch was successful
      */
     async switchCamera() {
-        console.log('CameraManager: Switching camera from', this.facingMode);
+        // Toggle facing mode
+        this.facingMode = this.facingMode === 'environment' ? 'user' : 'environment';
         
         // Stop current stream
         this.stop();
-
-        // Toggle facing mode
-        this.facingMode = this.facingMode === 'user' ? 'environment' : 'user';
-        console.log('CameraManager: New facing mode:', this.facingMode);
-
+        
         // Reinitialize with new facing mode
-        return this.initialize(this.videoElement, this.onErrorCallback);
+        try {
+            const success = await this.initialize();
+            return success;
+        } catch (error) {
+            console.error('CameraManager: Error switching camera:', error);
+            return false;
+        }
     }
 
     /**
@@ -254,13 +247,41 @@ export class CameraManager {
      * @returns {string|null} - Data URL of the captured image or null if failed
      */
     captureFrame(applyOrientationCorrection = false) {
+        console.log('CameraManager: captureFrame called', {
+            isInitialized: this.isInitialized,
+            hasVideoElement: !!this.videoElement,
+            applyOrientationCorrection: applyOrientationCorrection
+        });
+        
         if (!this.isInitialized || !this.videoElement) {
             console.error('CameraManager: Cannot capture frame - camera not initialized');
             return null;
         }
 
         try {
-            console.log('CameraManager: Capturing frame from video stream');
+            // Check if video is ready
+            if (this.videoElement.readyState < 2) {
+                console.error('CameraManager: Video element not ready for capture', {
+                    readyState: this.videoElement.readyState,
+                    videoWidth: this.videoElement.videoWidth,
+                    videoHeight: this.videoElement.videoHeight
+                });
+                return null;
+            }
+            
+            // Check if video has dimensions
+            if (!this.videoElement.videoWidth || !this.videoElement.videoHeight) {
+                console.error('CameraManager: Video dimensions not available', {
+                    videoWidth: this.videoElement.videoWidth,
+                    videoHeight: this.videoElement.videoHeight
+                });
+                return null;
+            }
+            
+            console.log('CameraManager: Creating canvas for frame capture', {
+                videoWidth: this.videoElement.videoWidth,
+                videoHeight: this.videoElement.videoHeight
+            });
             
             // Create a canvas element to capture the frame
             const canvas = document.createElement('canvas');
@@ -270,25 +291,27 @@ export class CameraManager {
             canvas.width = this.videoElement.videoWidth;
             canvas.height = this.videoElement.videoHeight;
             
-            console.log('CameraManager: Capture dimensions:', {
-                width: canvas.width,
-                height: canvas.height
-            });
-            
             // Check if we need to handle orientation for mobile devices
             const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             
             if (isMobile && applyOrientationCorrection) {
+                console.log('CameraManager: Applying orientation correction for mobile device');
                 // Apply transformations based on device orientation
                 this._applyOrientationCorrection(context, canvas.width, canvas.height);
             }
             
             // Draw the current video frame to the canvas
+            console.log('CameraManager: Drawing video frame to canvas');
             context.drawImage(this.videoElement, 0, 0, canvas.width, canvas.height);
             
             // Convert to data URL
+            console.log('CameraManager: Converting canvas to data URL');
             const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-            console.log('CameraManager: Frame captured successfully');
+            
+            console.log('CameraManager: Frame captured successfully', {
+                dataUrlLength: dataUrl.length
+            });
+            
             return dataUrl;
         } catch (error) {
             console.error('CameraManager: Error capturing frame:', error);
@@ -306,7 +329,6 @@ export class CameraManager {
     _applyOrientationCorrection(context, width, height) {
         // Get current orientation
         const orientation = window.orientation || 0;
-        console.log('CameraManager: Applying orientation correction for', orientation, 'degrees');
         
         // Apply transformations based on orientation
         context.save();
@@ -346,73 +368,60 @@ export class CameraManager {
      * Stop the camera stream
      */
     stop() {
-        console.log('CameraManager: Stopping camera stream');
-        
         if (this.stream) {
-            // Stop all tracks in the stream
-            this.stream.getTracks().forEach(track => {
-                console.log('CameraManager: Stopping track:', track.label);
+            // Stop all tracks
+            const tracks = this.stream.getTracks();
+            tracks.forEach(track => {
                 track.stop();
             });
+            
             this.stream = null;
         }
         
+        // Clear video source
         if (this.videoElement) {
             this.videoElement.srcObject = null;
         }
         
+        // Remove orientation change listener
+        this._removeOrientationChangeListener();
+        
+        // Reset state
         this.isInitialized = false;
-        console.log('CameraManager: Camera stream stopped');
     }
 
     /**
-     * Clean up resources when the camera manager is no longer needed
+     * Dispose of resources
      */
     dispose() {
         this.stop();
-        this._removeOrientationChangeListener();
-        console.log('CameraManager: Resources disposed');
+        this.videoElement = null;
     }
 
     /**
-     * Check if the camera is initialized
-     * @returns {boolean} - Whether the camera is initialized
+     * Check if the camera is active
+     * @returns {boolean} - True if the camera is initialized and active
      */
     isActive() {
-        return this.isInitialized;
+        return this.isInitialized && this.stream !== null;
     }
 
     /**
-     * Get the current facing mode
-     * @returns {string} - The current facing mode ('user' or 'environment')
-     */
-    getFacingMode() {
-        return this.facingMode;
-    }
-    
-    /**
-     * Check if the browser supports the camera API
-     * @returns {boolean} - Whether the camera API is supported
+     * Check if the camera API is supported in this browser
+     * @returns {boolean} - True if the camera API is supported
+     * @static
      */
     static isSupported() {
-        // Check if the MediaDevices API and getUserMedia are available
+        // Check if navigator.mediaDevices exists
         const hasMediaDevices = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
         
-        // Additional check for secure context (HTTPS) which is required for camera access
+        // Check if getUserMedia exists (for older browsers)
+        const hasGetUserMedia = !!(navigator.getUserMedia || navigator.webkitGetUserMedia || 
+                                 navigator.mozGetUserMedia || navigator.msGetUserMedia);
+        
+        // Check if we're in a secure context (HTTPS)
         const isSecureContext = window.isSecureContext;
         
-        // Log detailed information about the environment
-        console.log('CameraManager: Environment check:', {
-            hasMediaDevices,
-            isSecureContext,
-            protocol: window.location.protocol,
-            userAgent: navigator.userAgent
-        });
-        
-        // Consider the camera supported if we have the necessary APIs and are in a secure context
-        const isSupported = hasMediaDevices && isSecureContext;
-        console.log('CameraManager: Camera API supported:', isSupported);
-        
-        return isSupported;
+        return (hasMediaDevices || hasGetUserMedia) && isSecureContext;
     }
 } 

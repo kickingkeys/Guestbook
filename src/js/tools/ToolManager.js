@@ -34,7 +34,10 @@ export class ToolManager {
             camera: new CameraTool(canvasManager)
         };
         
-        // Set default tool
+        // Define disabled tools
+        this.disabledTools = ['hand', 'drawing', 'eraser'];
+        
+        // Set default tool to selection
         this.setTool('selection');
     }
     
@@ -46,6 +49,12 @@ export class ToolManager {
     setTool(toolName) {
         if (!this.tools[toolName]) {
             console.error(`Tool "${toolName}" not found`);
+            return false;
+        }
+        
+        // Prevent setting disabled tools
+        if (this.disabledTools && this.disabledTools.includes(toolName)) {
+            console.warn(`Tool "${toolName}" is disabled and cannot be activated`);
             return false;
         }
         
@@ -180,10 +189,12 @@ export class ToolManager {
                     toolName = 'selection';
                     break;
                 case 'h':
-                    toolName = 'hand';
+                    // Disable hand tool
+                    // toolName = 'hand';
                     break;
                 case 'p':
-                    toolName = 'drawing';
+                    // Disable drawing tool
+                    // toolName = 'drawing';
                     break;
                 case 't':
                     toolName = 'text';
@@ -195,7 +206,8 @@ export class ToolManager {
                     toolName = 'image';
                     break;
                 case 'e':
-                    toolName = 'eraser';
+                    // Disable eraser tool
+                    // toolName = 'eraser';
                     break;
                 case 'c':
                     toolName = 'camera';

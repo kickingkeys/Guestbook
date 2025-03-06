@@ -111,6 +111,23 @@ body {
     fill: white;
 }
 
+/* Disabled tool styling */
+.tool-button.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.tool-button.disabled svg path,
+.tool-button.disabled svg rect,
+.tool-button.disabled svg circle {
+    fill: #999;
+}
+
+.tool-button.disabled:hover {
+    background-color: transparent;
+}
+
 /* Tool button tooltips */
 .tool-button::after {
     content: attr(data-tooltip);
